@@ -10,20 +10,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 class MyImageDataset(Dataset):
-    def __init__(self, img_dir, transform=None):
+    def __init__(self, img_dir, split, transform=None):
         self.img_dir = img_dir
         self.transform = transform
+        self.split = split
 
         self.dataset_name = os.path.basename(self.img_dir) # each dataset has its own way of reading files
 
-        self.read_data_dir()
+        self.read_data_dir(self.split)
 
         self.log_dataset_info()
 
     def read_data_dir(self, split="train"):
         self.img_files = []
         self.labels = []
-
+        # read based on split
         data_dir = osp.join(self.img_dir)
         class_names = listdir_nohidden(data_dir)
         for class_name in class_names:

@@ -9,7 +9,9 @@ _C.MODEL = CN()
 _C.MODEL.TYPE = "MyModel"
 _C.MODEL.NAME = "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
 _C.MODEL.OUTPUT_DIR = f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}"
-_C.MODEL.MODEL_PATH = f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}/model/model-best.pth.tar"
+_C.MODEL.MODEL_DIR = f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}/model"
+_C.MODEL.MODEL_PATH = f"{_C.MODEL.MODEL_DIR}/model-best.pth.tar"
+_C.MODEL.RESUME = True # default to resume training
 # BACKBONE
 _C.MODEL.BACKBONE = CN()
 _C.MODEL.BACKBONE.PRETRAINED = False
@@ -36,11 +38,11 @@ _C.TRANSFORM.INTERPOLATION_MODE = "bilinear" # for resnet50, bilinear is often u
 _C.TRANSFORM.INPUT_SIZE = (224, 224)
 _C.TRANSFORM.INPUT_MEAN = [0.485, 0.456, 0.406]
 _C.TRANSFORM.INPUT_STD = [0.229, 0.224, 0.225]
-# Gaussian blur
+# GAUSSIAN BLUR
 _C.TRANSFORM.GB_P = 0.5  # propability of applying this operation
 _C.TRANSFORM.GB_K = 21  # kernel size (should be an odd number)
 _C.TRANSFORM.GB_SIGMA = (0.1, 3.0)  # Uniform[0, 3]
-# Jpeg compression
+# JPEG COMPRESSION
 _C.TRANSFORM.JPEG_P = 0.5
 _C.TRANSFORM.JPEG_QUALITY = (30, 99)
 # TEST
@@ -48,8 +50,51 @@ _C.TRANSFORM.NO_TRANSFORM_TEST = False
 
 # TRAINER
 _C.TRAINER = CN()
+_C.TRAINER.TYPE = 0
 _C.TRAINER.USE_CUDA = True
 _C.TRAINER.IS_TRAIN = False
+_C.TRAINER.NUM_EPOCHS = 1
+_C.TRAINER.NO_TEST = True
+_C.TRAINER.TEST_FINAL_MODEL = "best_val" # best_val or last_epoch
+_C.TRAINER.CHECKPOINT_FREQ = 0
+_C.TRAINER.PRINT_FREQ = 10
+# Optimization
+_C.TRAINER.OPTIM = CN()
+_C.TRAINER.OPTIM.NAME = "adam"
+_C.TRAINER.OPTIM.LR = 0.0003
+_C.TRAINER.OPTIM.WEIGHT_DECAY = 5e-4
+_C.TRAINER.OPTIM.MOMENTUM = 0.9
+_C.TRAINER.OPTIM.SGD_DAMPNING = 0
+_C.TRAINER.OPTIM.SGD_NESTEROV = False
+_C.TRAINER.OPTIM.RMSPROP_ALPHA = 0.99
+# The following also apply to other
+# adaptive optimizers like adamw
+_C.TRAINER.OPTIM.ADAM_BETA1 = 0.9
+_C.TRAINER.OPTIM.ADAM_BETA2 = 0.999
+# STAGED_LR allows different layers to have
+# different lr, e.g. pre-trained base layers
+# can be assigned a smaller lr than the new
+# classification layer
+_C.TRAINER.OPTIM.STAGED_LR = False
+_C.TRAINER.OPTIM.NEW_LAYERS = ()
+_C.TRAINER.OPTIM.BASE_LR_MULT = 0.1
+# Learning rate scheduler
+_C.TRAINER.OPTIM.LR_SCHEDULER = "single_step"
+# -1 or 0 means the stepsize is equal to max_epoch
+_C.TRAINER.OPTIM.STEPSIZE = (-1, )
+_C.TRAINER.OPTIM.GAMMA = 0.1
+_C.TRAINER.OPTIM.MAX_EPOCH = 10
+# Set WARMUP_EPOCH larger than 0 to activate warmup training
+_C.TRAINER.OPTIM.WARMUP_EPOCH = -1
+# Either linear or constant
+_C.TRAINER.OPTIM.WARMUP_TYPE = "linear"
+# Constant learning rate when type=constant
+_C.TRAINER.OPTIM.WARMUP_CONS_LR = 1e-5
+# Minimum learning rate when type=linear
+_C.TRAINER.OPTIM.WARMUP_MIN_LR = 1e-5
+# Recount epoch for the next scheduler (last_epoch=-1)
+# Otherwise last_epoch=warmup_epoch
+_C.TRAINER.OPTIM.WARMUP_RECOUNT = True
 
 # EVALUATOR
 _C.EVALUATOR = CN()

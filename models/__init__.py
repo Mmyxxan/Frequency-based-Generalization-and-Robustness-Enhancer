@@ -13,7 +13,7 @@ from functools import partial
 from collections import OrderedDict
 import shutil
 
-from utils import mkdir_if_missing
+from utils import mkdir_if_missing, load_checkpoint
 
 import logging
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def build_backbone(cfg):
     
 class Baseline:
     def __init__(self, cfg, **kwargs):
-        pass
+        super().__init__()
 
     def forward(self, x):
         pass
@@ -47,6 +47,8 @@ class Baseline:
 
 class MyModel(nn.Module):
     def __init__(self, cfg, **kwargs):
+        super().__init__()
+
         self.backbone = build_backbone(cfg=cfg)
 
         fdim = self.backbone.out_features
@@ -57,7 +59,33 @@ class MyModel(nn.Module):
         y = self.classifier(f)
         return y
     
-    def load_checkpoint(self, cfg):
+    def load_model(self, directory, epoch=None):
+        # By default, the best model is loaded
+        model_file = "model-best.pth.tar"
+
+        if epoch is not None:
+            model_file = "model.pth.tar-" + str(epoch)
+
+        model_path = osp.join(directory, model_file)
+
+        if not osp.exists(model_path):
+            logger.error(f"No model at {model_path}")
+            raise FileNotFoundError(f"No model at {model_path}")
+
+        checkpoint = load_checkpoint(model_path)
+
+        state_dict = checkpoint["state_dict"]
+        epoch = checkpoint["epoch"]
+        val_result = checkpoint["val_result"]
+        
+        if val_result is None:
+            logger.info(f"Load {model_path} (epoch={epoch}, val_result=Not available)")
+        else:
+            logger.info(f"Load {model_path} (epoch={epoch}, val_result={val_result:.1f})")
+
+        self.load_state_dict(state_dict)
+
+    def resume_or_load_checkpoint(self, cfg, optimizer, scheduler):
         if not osp.exists(cfg.MODEL.MODEL_PATH):
             logger.error('File is not found at "{}"'.format(cfg.MODEL.MODEL_PATH))
             raise FileNotFoundError('File is not found at "{}"'.format(cfg.MODEL.MODEL_PATH))
@@ -65,7 +93,27 @@ class MyModel(nn.Module):
         map_location = None if cfg.TRAINER.USE_CUDA else "cpu"
 
         try:
-            checkpoint = torch.load(cfg.MODEL.MODEL_PATH, map_location=map_location)
+            if cfg.TRAINER.IS_TRAIN and cfg.MODEL.RESUME:
+                with open(osp.join(cfg.MODEL.MODEL_DIR, "checkpoint"), "r") as checkpoint:
+                    model_name = checkpoint.readlines()[0].strip("\n")
+                    fpath = osp.join(cfg.MODEL.MODEL_DIR, model_name)
+
+                logger.info(f"Resume training at checkpoint {cfg.MODEL.MODEL_PATH}")
+                checkpoint = torch.load(fpath, map_location=map_location)
+
+                if optimizer is not None and "optimizer" in checkpoint.keys():
+                    optimizer.load_state_dict(checkpoint["optimizer"])
+                    logger.info("Resume optimizer")
+
+                if scheduler is not None and "scheduler" in checkpoint.keys():
+                    scheduler.load_state_dict(checkpoint["scheduler"])
+                    logger.info("Resume scheduler")
+
+                start_epoch = checkpoint["epoch"]
+                logger.info("Previous epoch: {}".format(start_epoch))
+            else:
+                start_epoch = 0
+                checkpoint = torch.load(cfg.MODEL.MODEL_PATH, map_location=map_location)
 
         except UnicodeDecodeError:
             pickle.load = partial(pickle.load, encoding="latin1")
@@ -88,6 +136,8 @@ class MyModel(nn.Module):
             logger.info(f"Load {cfg.MODEL.MODEL_PATH} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME} (epoch={epoch}, val_result={val_result:.1f})")
 
         self.load_state_dict(state_dict)
+
+        return start_epoch
 
     def save_checkpoint(self, 
                         cfg,
@@ -112,6 +162,13 @@ class MyModel(nn.Module):
         fpath = osp.join(cfg.MODEL.OUTPUT_DIR, "model", model_name)
         torch.save(state, fpath)
         logger.info(f"Checkpoint saved to {fpath}")
+
+        # save current model name
+        checkpoint_file = osp.join(cfg.MODEL.OUTPUT_DIR, "model", "checkpoint")
+        checkpoint = open(checkpoint_file, "w+")
+        checkpoint.write("{}\n".format(osp.basename(fpath)))
+        logger.info(f"Checkpoint file containing model name '{osp.basename(fpath)}' is written to {checkpoint_file}")
+        checkpoint.close()
 
         if is_best:
             best_fpath = osp.join(osp.dirname(fpath), "model-best.pth.tar")
