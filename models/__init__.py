@@ -18,14 +18,15 @@ from utils import mkdir_if_missing
 import logging
 logger = logging.getLogger(__name__)
 
+MODEL_TO_BACKBONES = {
+    "Fused_CNN_ResNet50_CLIP_ViT_512_Concat": [ResNet50, CLIPViT],
+    "Fused_CNN_ResNet50_CLIP_ViT_FARE_512_Concat": [ResNet50, CLIPViT_FARE],
+}
+
 def build_backbone(cfg):
-    if cfg.MODEL.NAME == "Fused_CNN_ResNet50_CLIP_ViT_512_Concat":
+    if cfg.MODEL.NAME in MODEL_TO_BACKBONES:
         logger.info(f"Loading {cfg.MODEL.NAME}")
-        return FusedBackbone(backbone_list=[ResNet50, CLIPViT], project_dim=512, fuse_technique="Concat",
-                             freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
-    if cfg.MODEL.NAME == "Fused_CNN_ResNet50_CLIP_ViT_FARE_512_Concat":
-        logger.info(f"Loading {cfg.MODEL.NAME}")
-        return FusedBackbone(backbone_list=[ResNet50, CLIPViT_FARE], project_dim=512, fuse_technique="Concat",
+        return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Concat",
                              freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
     else:
         logger.error(f"Unknown model name: {cfg.MODEL.NAME}")

@@ -6,14 +6,14 @@ from .backbone import Backbone
 
 class ResNet50(Backbone):
 
-    resnet_normalize = transforms.Normalize(
+    normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225]
     )
 
     @staticmethod
     def preprocess(image_tensor):
-        return ResNet50.resnet_normalize(image_tensor.clone())  # Clone to avoid in-place ops
+        return ResNet50.normalize(image_tensor.clone())  # Clone to avoid in-place ops
 
     def __init__(self, freeze=True, pretrained=True):
         super().__init__()

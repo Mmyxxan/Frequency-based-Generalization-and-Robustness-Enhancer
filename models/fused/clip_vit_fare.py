@@ -7,14 +7,14 @@ from .backbone import Backbone
 
 class CLIPViT_FARE(Backbone):
 
-    clip_normalize = transforms.Normalize(
+    normalize = transforms.Normalize(
         mean=[0.48145466, 0.4578275, 0.40821073],
         std=[0.26862954, 0.26130258, 0.27577711]
     )
 
     @staticmethod
     def preprocess(image_tensor):
-        return CLIPViT_FARE.clip_normalize(image_tensor.clone())
+        return CLIPViT_FARE.normalize(image_tensor.clone())
 
     def __init__(self, model_name="hf-hub:chs20/fare4-clip", pretrained=True, freeze=True):
         super().__init__()
