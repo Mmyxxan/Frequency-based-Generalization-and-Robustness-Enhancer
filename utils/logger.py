@@ -12,7 +12,8 @@ def set_up_logger(cfg):
     logging.basicConfig(
         filename=logfile,
         encoding='utf-8',
-        level=logging.DEBUG,
+        # level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 

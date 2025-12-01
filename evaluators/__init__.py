@@ -1,4 +1,4 @@
-
+from .evaluator import Classification
 
 def compute_accuracy(output, target, topk=(1, )):
     """Computes the accuracy over the k top predictions for
@@ -32,4 +32,4 @@ def compute_accuracy(output, target, topk=(1, )):
     return res
 
 def build_evaluator(cfg):
-    pass
+    return Classification(cfg=cfg)
