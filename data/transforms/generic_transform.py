@@ -25,11 +25,18 @@ INTERPOLATION_MODES = {
     "nearest": InterpolationMode.NEAREST,
 }
 
+class BackbonePreprocessWrapper:
+    def __init__(self, backbones):
+        self.backbones = backbones
+
+    def __call__(self, x):
+        return [backbone.preprocess(x) for backbone in self.backbones]
+
 def build_model_transform(cfg):
     if cfg.MODEL.NAME in MODEL_TO_BACKBONES:
         logger.info("+ normalize by backbone")
-        return lambda x: [backbone.preprocess(x) for backbone in MODEL_TO_BACKBONES[cfg.MODEL.NAME]]
-    else: 
+        return BackbonePreprocessWrapper(MODEL_TO_BACKBONES[cfg.MODEL.NAME])
+    else:
         logger.error(f"Unknown model name: {cfg.MODEL.NAME}")
         raise ValueError(f"Unknown model name: {cfg.MODEL.NAME}")
 
@@ -55,7 +62,7 @@ def build_transform(cfg, is_train):
         logger.info(f"+ resize to {input_size}")
         tfm += [Resize(input_size, interpolation=interp_mode)]
 
-    if not cfg.TRANSFORM.NO_TRANSFORM_TEST:
+    if is_train or not cfg.TRANSFORM.NO_TRANSFORM_TEST:
         if "random_flip" in choices:
             logger.info("+ random flip")
             tfm += [RandomHorizontalFlip()]

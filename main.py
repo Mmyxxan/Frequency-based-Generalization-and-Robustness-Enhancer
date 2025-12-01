@@ -1,4 +1,5 @@
 # should implement summary writer tensorboard
+# should add drop out config and in classifier
 # write config for each experiment and then try running
 # write code to load different datasets
 
@@ -51,7 +52,7 @@ def reset_cfg(cfg, args):
         cfg.TRANSFORM.NO_TRANSFORM_TEST = args.no_tf_test
 
     if args.eval_only:
-        cfg.TRAINER.IS_TRAIN = not args.eval_only
+        cfg.TRAINER.IS_TRAIN = False
 
 def extend_cfg(cfg):
     """
@@ -109,7 +110,9 @@ def main(args):
         return
 
     if (args.model_dir and args.resume) or args.model_path:
-        trainer.train()
+        pass # this is resume case, not train from scratch case
+
+    trainer.train()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -170,3 +173,5 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     main(args)
+
+# Priority: default < config file < input arguments

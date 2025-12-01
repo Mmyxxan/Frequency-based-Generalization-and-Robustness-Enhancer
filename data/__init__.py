@@ -33,5 +33,5 @@ def build_dataloader(cfg, is_train, split):
         shuffle=not is_iterable and is_train,  # can't shuffle IterableDataset
         num_workers=cfg.DATALOADER.NUM_WORKERS,
         drop_last=not is_iterable and is_train and len(dataset) >= cfg.DATALOADER.BATCH_SIZE,
-        pin_memory=cfg.USE_CUDA,
+        pin_memory=cfg.TRAINER.USE_CUDA,
     )

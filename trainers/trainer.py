@@ -1,6 +1,7 @@
 import time
 import datetime
 from tqdm import tqdm
+import os.path as osp
 
 import torch
 import torch.nn as nn
@@ -40,23 +41,34 @@ class AbstractTrainer:
             self.model = nn.DataParallel(self.model)
 
         if self.cfg.TRAINER.IS_TRAIN:
+            logger.info(f"Training {self.cfg.MODEL.NAME}")
             # If train, initialize best result
             self.best_result = -np.inf
             # If train, set up number of epochs by default
             self.start_epoch = 0
             self.last_epoch = self.cfg.TRAINER.NUM_EPOCHS
             # If train, build optimizer and lr_scheduler
-            self.optimizer = build_optimizer(self.model, self.cfg.OPTIM)
-            self.scheduler = build_lr_scheduler(self.optimizer, self.cfg.OPTIM)
+            self.optimizer = build_optimizer(self.model, self.cfg.TRAINER.OPTIM)
+            self.scheduler = build_lr_scheduler(self.optimizer, self.cfg.TRAINER.OPTIM)
             # If train, build train and val loader
             self.train_loader = build_dataloader(self.cfg, is_train=True, split="train")
-            self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
+            logger.info("Successfully build train loader!")
+            if not self.cfg.TRAINER.NO_TEST:
+                self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
+                logger.info("Successfully build val loader!")
+            else:
+                logger.info("No test, no need to build val loader!")
 
-        # Build test loader
-        self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
-        
-        # Build evaluator
-        self.evaluator = build_evaluator(self.cfg)
+        if not self.cfg.TRAINER.NO_TEST:
+            # Build test loader
+            self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
+            logger.info("Successfully build test loader!")
+
+            # Build evaluator
+            self.evaluator = build_evaluator(self.cfg)
+            logger.info("Successfully build evaluator!")
+        else:
+            logger.info("No test, no need to build test loader and evaluator!")
 
     def set_model_mode(self, mode="train"):
         if mode == "train":
@@ -79,7 +91,19 @@ class AbstractTrainer:
         self.after_train()
 
     def before_train(self, start_time=True):
-        self.start_epoch = self.model.resume_or_load_checkpoint(self.cfg, self.optimizer, self.scheduler)
+        if not osp.exists(self.cfg.MODEL.MODEL_PATH):
+            self.start_epoch = 0
+            logger.info("Training model from scratch...")
+        else:
+            optimizer = getattr(self, "optimizer", None)
+            scheduler = getattr(self, "scheduler", None)
+
+            self.start_epoch = self.model.resume_or_load_checkpoint(
+                self.cfg,
+                optimizer,
+                scheduler
+            )
+
         if start_time:
             self.time_start = time.time()
 
@@ -169,8 +193,8 @@ class AbstractTrainer:
         return self.model(input)
 
     def parse_batch_test(self, batch):
-        input = batch["img"]
-        label = batch["label"]
+        input = batch[0]
+        label = batch[1]
 
         if isinstance(input, list):
             input = [x.to(self.device) for x in input]
@@ -268,8 +292,8 @@ class StandardTrainer(AbstractTrainer):
         return loss_summary
 
     def parse_batch_train(self, batch):
-        input = batch["img"]
-        label = batch["label"]
+        input = batch[0]
+        label = batch[1]
 
         if isinstance(input, list):
             input = [x.to(self.device) for x in input]

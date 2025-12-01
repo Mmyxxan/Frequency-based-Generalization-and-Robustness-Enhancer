@@ -93,7 +93,7 @@ class MyModel(nn.Module):
         map_location = None if cfg.TRAINER.USE_CUDA else "cpu"
 
         try:
-            if cfg.TRAINER.IS_TRAIN and cfg.MODEL.RESUME:
+            if cfg.TRAINER.IS_TRAIN and cfg.MODEL.RESUME and osp.exists(osp.join(cfg.MODEL.MODEL_DIR, "checkpoint")):
                 with open(osp.join(cfg.MODEL.MODEL_DIR, "checkpoint"), "r") as checkpoint:
                     model_name = checkpoint.readlines()[0].strip("\n")
                     fpath = osp.join(cfg.MODEL.MODEL_DIR, model_name)
@@ -113,6 +113,7 @@ class MyModel(nn.Module):
                 logger.info("Previous epoch: {}".format(start_epoch))
             else:
                 start_epoch = 0
+                # for test
                 checkpoint = torch.load(cfg.MODEL.MODEL_PATH, map_location=map_location)
 
         except UnicodeDecodeError:

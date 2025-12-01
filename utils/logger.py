@@ -14,7 +14,8 @@ def set_up_logger(cfg):
         encoding='utf-8',
         # level=logging.DEBUG,
         level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        # format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format="%(message)s"
     )
 
 logger.debug('Logger is set up successfully!')

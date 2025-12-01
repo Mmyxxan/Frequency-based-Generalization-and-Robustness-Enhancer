@@ -54,7 +54,7 @@ _C.TRAINER.TYPE = 0
 _C.TRAINER.USE_CUDA = True
 _C.TRAINER.IS_TRAIN = False
 _C.TRAINER.NUM_EPOCHS = 1
-_C.TRAINER.NO_TEST = True
+_C.TRAINER.NO_TEST = False # val after epoch and test after train
 _C.TRAINER.TEST_FINAL_MODEL = "best_val" # best_val or last_epoch
 _C.TRAINER.CHECKPOINT_FREQ = 0
 _C.TRAINER.PRINT_FREQ = 10
@@ -84,7 +84,7 @@ _C.TRAINER.OPTIM.LR_SCHEDULER = "single_step"
 # -1 or 0 means the stepsize is equal to max_epoch
 _C.TRAINER.OPTIM.STEPSIZE = (-1, )
 _C.TRAINER.OPTIM.GAMMA = 0.1
-_C.TRAINER.OPTIM.MAX_EPOCH = 10
+_C.TRAINER.OPTIM.MAX_EPOCH = _C.TRAINER.NUM_EPOCHS
 # Set WARMUP_EPOCH larger than 0 to activate warmup training
 _C.TRAINER.OPTIM.WARMUP_EPOCH = -1
 # Either linear or constant

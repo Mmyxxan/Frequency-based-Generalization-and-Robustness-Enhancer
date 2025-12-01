@@ -1,0 +1,44 @@
+# Test Fused_CNN_ResNet50_CLIP_ViT_512_Concat on ProGAN with no corruption
+# python main.py --config-file "configs/custom/experiment_2.yaml" --eval-only
+MODEL:
+  TYPE: "MyModel"
+  NAME: "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
+  # OUTPUT_DIR: f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}" # already defined in defaults.py
+  MODEL_DIR: "D:/GitHub/Dassl.pytorch/output/cnn_spot/model"
+  MODEL_PATH: "D:/GitHub/Dassl.pytorch/output/cnn_spot/model/model-best.pth.tar"
+
+DATASET:
+  NAME: "ProGAN"
+  DATA_DIR: "D:/GitHub/Dassl.pytorch/dassl/data/datasets/cnn_spot/test/progan"
+
+DATALOADER:
+  BATCH_SIZE: 32
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: True
+  INPUT_SIZE: (224, 224)
+  # GAUSSIAN BLUR
+  GB_P: 0.5
+  GB_K: 21
+  GB_SIGMA: (0.1, 3.0)
+  # JPEG COMPRESSION
+  JPEG_P: 0.5
+  JPEG_QUALITY: (30, 99)
+  # TEST
+  NO_TRANSFORM_TEST: False
+
+TRAINER:
+  TYPE: 0
+  USE_CUDA: False
+  IS_TRAIN: False
+  NUM_EPOCHS: 1
+  NO_TEST: False # val after epoch and test after train
+  TEST_FINAL_MODEL: "best_val"
+  OPTIM:
+    NAME: "sgd"
+    LR: 0.002
+    STEPSIZE: [20]
+
+EVALUATOR:
+  COMPUTE_CONFUSION_MATRIX: False
