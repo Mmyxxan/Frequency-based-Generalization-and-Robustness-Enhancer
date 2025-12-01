@@ -4,6 +4,12 @@ import pickle
 from functools import partial
 import torch
 import os.path as osp
+import numpy as np
+import random
+import PIL
+
+import logging
+logger = logging.getLogger(__name__)
 
 def count_num_param(model=None, params=None, trainable_only=False):
     r"""Count number of parameters in a model.
@@ -70,7 +76,24 @@ def load_checkpoint(fpath):
         )
 
     except Exception:
-        print('Unable to load checkpoint from "{}"'.format(fpath))
+        logger.info('Unable to load checkpoint from "{}"'.format(fpath))
         raise
 
     return checkpoint
+
+def set_random_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+def collect_env_info():
+    """Return env info as a string.
+
+    Code source: github.com/facebookresearch/maskrcnn-benchmark
+    """
+    from torch.utils.collect_env import get_pretty_env_info
+
+    env_str = get_pretty_env_info()
+    env_str += "\n        Pillow ({})".format(PIL.__version__)
+    return env_str

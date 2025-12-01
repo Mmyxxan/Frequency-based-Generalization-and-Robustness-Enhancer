@@ -78,9 +78,10 @@ class AbstractTrainer:
             self.after_epoch()
         self.after_train()
 
-    def before_train(self):
+    def before_train(self, start_time=True):
         self.start_epoch = self.model.resume_or_load_checkpoint(self.cfg, self.optimizer, self.scheduler)
-        self.time_start = time.time()
+        if start_time:
+            self.time_start = time.time()
 
     def before_epoch(self):
         pass

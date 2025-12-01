@@ -58,6 +58,7 @@ _C.TRAINER.NO_TEST = True
 _C.TRAINER.TEST_FINAL_MODEL = "best_val" # best_val or last_epoch
 _C.TRAINER.CHECKPOINT_FREQ = 0
 _C.TRAINER.PRINT_FREQ = 10
+_C.TRAINER.SEED = -1
 # Optimization
 _C.TRAINER.OPTIM = CN()
 _C.TRAINER.OPTIM.NAME = "adam"
