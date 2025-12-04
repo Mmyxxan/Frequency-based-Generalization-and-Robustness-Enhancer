@@ -1,4 +1,3 @@
-# import models
 from .fused.fused_backbone import FusedBackbone
 from .fused.clip_vit import CLIPViT
 from .fused.cnn_resnet50 import ResNet50
@@ -78,10 +77,7 @@ class MyModel(nn.Module):
         epoch = checkpoint["epoch"]
         val_result = checkpoint["val_result"]
         
-        if val_result is None:
-            logger.info(f"Load {model_path} (epoch={epoch}, val_result=Not available)")
-        else:
-            logger.info(f"Load {model_path} (epoch={epoch}, val_result={val_result:.1f})")
+        logger.info(f"Load {model_path} (epoch={epoch}, val_result={val_result:.1f})")
 
         self.load_state_dict(state_dict)
 
