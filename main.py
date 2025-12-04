@@ -1,7 +1,5 @@
 # should implement summary writer tensorboard
 # should add drop out config and in classifier
-# write config for each experiment and then try running
-# write code to load different datasets
 
 import argparse
 import torch
