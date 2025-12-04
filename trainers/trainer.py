@@ -238,7 +238,7 @@ class StandardTrainer(AbstractTrainer):
     def __init__(self, cfg):
         super().__init__(cfg)
 
-        logger.info("Successfully built StandardTrainer!")
+        logger.info("Successfully build StandardTrainer!")
 
     def run_epoch(self):
         self.set_model_mode("train")
