@@ -23,67 +23,39 @@ class MyImageDataset(Dataset):
         self.log_dataset_info()
 
     def read_data_dir(self, split="test"):
+        """
+        Load image file paths and labels from a directory structured as:
+
+            img_dir/
+                class_name_1/     ← e.g., "cat"
+                    labelName1/   ← e.g., "0_real"
+                        img1.jpg
+                        img2.jpg
+                    labelName2/   ← e.g., "1_fake"
+                        img3.jpg
+                class_name_2/
+                    ...
+        """
+        
         self.img_files = []
         self.labels = []
 
-        if self.dataset_name == "cnn_spot":
-            data_dir = osp.join(self.img_dir, split)
-            if split == "train" or split == "val":
-                class_names = listdir_nohidden(data_dir)
-                for class_name in class_names:
-                    class_dir = osp.join(data_dir, class_name)
-                    label_names = listdir_nohidden(class_dir)
-                    for label_name in label_names:
-                        label_dir = osp.join(class_dir, label_name)
-                        label = int(label_name.split("_")[0])
-                        imnames = listdir_nohidden(label_dir)
-                        for imname in imnames:
-                            impath = osp.join(label_dir, imname)
-                            self.img_files.append(impath)
-                            self.labels.append(label)
-            elif split == "test":
-                model_names = listdir_nohidden(data_dir)
-                for model_name in model_names:
-                    model_dir = osp.join(data_dir, model_name)
-                    if model_name not in ["cyclegan", "progan", "stylegan", "stylegan2"]:
-                        label_names = listdir_nohidden(model_dir)
-                        for label_name in label_names:
-                            label_dir = osp.join(class_dir, label_name)
-                            label = int(label_name.split("_")[0])
-                            imnames = listdir_nohidden(label_dir)
-                            for imname in imnames:
-                                impath = osp.join(label_dir, imname)
-                                self.img_files.append(impath)
-                                self.labels.append(label)
-                    else:
-                        class_names = listdir_nohidden(model_dir)
-                        for class_name in class_names:
-                            class_dir = osp.join(model_dir, class_name)
-                            label_names = listdir_nohidden(class_dir)
-                            for label_name in label_names:
-                                label_dir = osp.join(class_dir, label_name)
-                                label = int(label_name.split("_")[0])
-                                imnames = listdir_nohidden(label_dir)
-                                for imname in imnames:
-                                    impath = osp.join(label_dir, imname)
-                                    self.img_files.append(impath)
-                                    self.labels.append(label)
-            
-            return
-
-        data_dir = osp.join(self.img_dir)
-        class_names = listdir_nohidden(data_dir)
-        for class_name in class_names:
-            class_dir = osp.join(data_dir, class_name)
-            label_names = listdir_nohidden(class_dir)
-            for label_name in label_names:
-                label_dir = osp.join(class_dir, label_name)
-                label = int(label_name.split("_")[0])
-                imnames = listdir_nohidden(label_dir)
-                for imname in imnames:
-                    impath = osp.join(label_dir, imname)
-                    self.img_files.append(impath)
-                    self.labels.append(label)
+        if split == "test":
+            data_dir = osp.join(self.img_dir)
+            class_names = listdir_nohidden(data_dir)
+            for class_name in class_names:
+                class_dir = osp.join(data_dir, class_name)
+                label_names = listdir_nohidden(class_dir)
+                for label_name in label_names:
+                    label_dir = osp.join(class_dir, label_name)
+                    label = int(label_name.split("_")[0])
+                    imnames = listdir_nohidden(label_dir)
+                    for imname in imnames:
+                        impath = osp.join(label_dir, imname)
+                        self.img_files.append(impath)
+                        self.labels.append(label)
+        
+        return
 
     def log_dataset_info(self):
         total_images = len(self.img_files)
@@ -109,3 +81,52 @@ class MyImageDataset(Dataset):
             image = self.transform(image)
 
         return image, label
+
+class CNNSpot(MyImageDataset):
+    def read_data_dir(self, split="test"):
+        self.img_files = []
+        self.labels = []
+
+        data_dir = osp.join(self.img_dir, split)
+        if split == "train" or split == "val":
+            class_names = listdir_nohidden(data_dir)
+            for class_name in class_names:
+                class_dir = osp.join(data_dir, class_name)
+                label_names = listdir_nohidden(class_dir)
+                for label_name in label_names:
+                    label_dir = osp.join(class_dir, label_name)
+                    label = int(label_name.split("_")[0])
+                    imnames = listdir_nohidden(label_dir)
+                    for imname in imnames:
+                        impath = osp.join(label_dir, imname)
+                        self.img_files.append(impath)
+                        self.labels.append(label)
+        elif split == "test":
+            model_names = listdir_nohidden(data_dir)
+            for model_name in model_names:
+                model_dir = osp.join(data_dir, model_name)
+                if model_name not in ["cyclegan", "progan", "stylegan", "stylegan2"]:
+                    label_names = listdir_nohidden(model_dir)
+                    for label_name in label_names:
+                        label_dir = osp.join(class_dir, label_name)
+                        label = int(label_name.split("_")[0])
+                        imnames = listdir_nohidden(label_dir)
+                        for imname in imnames:
+                            impath = osp.join(label_dir, imname)
+                            self.img_files.append(impath)
+                            self.labels.append(label)
+                else:
+                    class_names = listdir_nohidden(model_dir)
+                    for class_name in class_names:
+                        class_dir = osp.join(model_dir, class_name)
+                        label_names = listdir_nohidden(class_dir)
+                        for label_name in label_names:
+                            label_dir = osp.join(class_dir, label_name)
+                            label = int(label_name.split("_")[0])
+                            imnames = listdir_nohidden(label_dir)
+                            for imname in imnames:
+                                impath = osp.join(label_dir, imname)
+                                self.img_files.append(impath)
+                                self.labels.append(label)
+        
+        return

@@ -2,7 +2,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import IterableDataset
 from datasets import load_dataset
 
-from .datasets.generic_dataset import MyImageDataset
+from .datasets.generic_dataset import *
 from .datasets.hugging_face_dataset import HuggingFaceIterableDataset
 from .transforms.generic_transform import build_transform
 
@@ -20,7 +20,10 @@ def build_dataset(cfg, is_train, split):
         return HuggingFaceIterableDataset(hf_dataset=ds, transform=transform)
     else:
         logger.info(f"Loading dataset {cfg.DATASET.NAME} locally...")
-
+    
+    if cfg.DATASET.NAME == "CNNSpot":
+        return CNNSpot(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
+    else:
         return MyImageDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
 
 def build_dataloader(cfg, is_train, split):
