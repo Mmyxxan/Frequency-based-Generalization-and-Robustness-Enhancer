@@ -84,7 +84,7 @@ class MyModel(nn.Module):
     def resume_or_load_checkpoint(self, cfg, optimizer, scheduler):
         fpath = osp.join(cfg.MODEL.MODEL_DIR, cfg.MODEL.MODEL_NAME)
 
-        if cfg.TRAINER_IS_TRAIN:
+        if cfg.TRAINER.IS_TRAIN:
             if not cfg.MODEL.RESUME or not osp.exists(fpath):
                 logger.info("Training model from scratch...")
                 return 0
@@ -156,6 +156,10 @@ class MyModel(nn.Module):
         epoch = state["epoch"]
         if not model_name:
             model_name = "model.pth.tar-" + str(epoch)
+
+        # Make model dir if not exists
+        mkdir_if_missing(osp.join(cfg.MODEL.OUTPUT_DIR, "model"))
+
         fpath = osp.join(cfg.MODEL.OUTPUT_DIR, "model", model_name)
         torch.save(state, fpath)
         logger.info(f"Checkpoint saved to {fpath}")
