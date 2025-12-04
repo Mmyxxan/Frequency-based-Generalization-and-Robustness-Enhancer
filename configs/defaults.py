@@ -10,7 +10,7 @@ _C.MODEL.TYPE = "MyModel"
 _C.MODEL.NAME = "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
 _C.MODEL.OUTPUT_DIR = f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}"
 _C.MODEL.MODEL_DIR = f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}/model"
-_C.MODEL.MODEL_PATH = f"{_C.MODEL.MODEL_DIR}/model-best.pth.tar"
+_C.MODEL.MODEL_NAME = "model-best.pth.tar"
 _C.MODEL.RESUME = True # default to resume training
 # BACKBONE
 _C.MODEL.BACKBONE = CN()

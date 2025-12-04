@@ -7,6 +7,7 @@ MODEL:
 DATASET:
   NAME: "CNNSpot"
   DATA_DIR: "D:/GitHub/Dassl.pytorch/dassl/data/datasets/cnn_spot"
+  NUM_CLASSES: 2
 
 DATALOADER:
   BATCH_SIZE: 32

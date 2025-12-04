@@ -90,22 +90,17 @@ class AbstractTrainer:
             self.after_epoch()
         self.after_train()
 
-    def before_train(self, start_time=True):
-        if not osp.exists(self.cfg.MODEL.MODEL_PATH):
-            self.start_epoch = 0
-            logger.info("Training model from scratch...")
-        else:
-            optimizer = getattr(self, "optimizer", None)
-            scheduler = getattr(self, "scheduler", None)
+    def before_train(self):
+        optimizer = getattr(self, "optimizer", None)
+        scheduler = getattr(self, "scheduler", None)
 
-            self.start_epoch = self.model.resume_or_load_checkpoint(
-                self.cfg,
-                optimizer,
-                scheduler
-            )
+        self.start_epoch = self.model.resume_or_load_checkpoint(
+            self.cfg,
+            optimizer,
+            scheduler
+        )
 
-        if start_time:
-            self.time_start = time.time()
+        self.time_start = time.time()
 
     def before_epoch(self):
         pass
@@ -157,7 +152,7 @@ class AbstractTrainer:
         if not self.cfg.TRAINER.NO_TEST:
             if self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
                 logger.info("Deploy the model with the best val performance")
-                self.model.load_model(f"{self.cfg.MODEL.OUTPUT_DIR}/model")
+                self.model.load_best_model(f"{self.cfg.MODEL.OUTPUT_DIR}/model")
             else:
                 logger.info("Deploy the last-epoch model")
             self.test()
@@ -186,6 +181,11 @@ class AbstractTrainer:
             self.evaluator.process(output, label)
 
         results = self.evaluator.evaluate()
+
+        # Show elapsed time
+        elapsed = round(time.time() - self.time_start)
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+        logger.info(f"Elapsed: {elapsed}")
 
         return list(results.values())[0]
     
@@ -235,6 +235,11 @@ class AbstractTrainer:
         self.model_update()
 
 class StandardTrainer(AbstractTrainer):
+    def __init__(self, cfg):
+        super().__init__(cfg)
+
+        logger.info("Successfully built StandardTrainer!")
+
     def run_epoch(self):
         self.set_model_mode("train")
 

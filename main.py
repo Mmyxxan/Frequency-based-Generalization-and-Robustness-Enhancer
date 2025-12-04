@@ -46,7 +46,7 @@ def reset_cfg(cfg, args):
         cfg.TRAINER.TYPE = args.trainer_type
 
     if args.model_name:
-        cfg.MODEL.NAME = args.model_name
+        cfg.MODEL.MODEL_NAME = args.model_name
 
     if args.no_tf_test:
         cfg.TRANSFORM.NO_TRANSFORM_TEST = args.no_tf_test
@@ -105,12 +105,9 @@ def main(args):
     trainer = build_trainer(cfg)
 
     if args.eval_only:
-        trainer.before_train(start_time=False)
+        trainer.before_train()
         trainer.test()
         return
-
-    if (args.model_dir and args.resume) or args.model_path:
-        pass # this is resume case, not train from scratch case
 
     trainer.train()
 
@@ -142,7 +139,7 @@ if __name__ == "__main__":
         "--trainer-type", type=int, default=0, help="type of trainer"
     )
     parser.add_argument(
-        "--model-name", type=str, default="", help="name of model"
+        "--model-name", type=str, default="", help="name of model that should be loaded"
     )
     parser.add_argument(
         "--eval-only", action="store_true", help="evaluation only"
@@ -152,12 +149,6 @@ if __name__ == "__main__":
         type=str,
         default="",
         help="load model from this directory",
-    )
-    parser.add_argument(
-        "--model-path",
-        type=str,
-        default="",
-        help="which model to load from model directory",
     )
     parser.add_argument(
         "--no-tf-test",

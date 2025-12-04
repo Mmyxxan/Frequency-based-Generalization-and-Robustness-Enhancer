@@ -59,7 +59,7 @@ class MyModel(nn.Module):
         y = self.classifier(f)
         return y
     
-    def load_model(self, directory, epoch=None):
+    def load_best_model(self, directory, epoch=None):
         # By default, the best model is loaded
         model_file = "model-best.pth.tar"
 
@@ -86,21 +86,25 @@ class MyModel(nn.Module):
         self.load_state_dict(state_dict)
 
     def resume_or_load_checkpoint(self, cfg, optimizer, scheduler):
-        if not osp.exists(cfg.MODEL.MODEL_PATH):
-            logger.error('File is not found at "{}"'.format(cfg.MODEL.MODEL_PATH))
-            raise FileNotFoundError('File is not found at "{}"'.format(cfg.MODEL.MODEL_PATH))
-        
+        fpath = osp.join(cfg.MODEL.MODEL_DIR, cfg.MODEL.MODEL_NAME)
+
+        if cfg.TRAINER_IS_TRAIN:
+            if not cfg.MODEL.RESUME or not osp.exists(fpath):
+                logger.info("Training model from scratch...")
+                return 0
+        else:
+            if not osp.exists(fpath):
+                logger.error('File is not found at "{}"'.format(fpath))
+                raise FileNotFoundError('File is not found at "{}"'.format(fpath))        
+
         map_location = None if cfg.TRAINER.USE_CUDA else "cpu"
 
         try:
-            if cfg.TRAINER.IS_TRAIN and cfg.MODEL.RESUME and osp.exists(osp.join(cfg.MODEL.MODEL_DIR, "checkpoint")):
-                with open(osp.join(cfg.MODEL.MODEL_DIR, "checkpoint"), "r") as checkpoint:
-                    model_name = checkpoint.readlines()[0].strip("\n")
-                    fpath = osp.join(cfg.MODEL.MODEL_DIR, model_name)
+            checkpoint = torch.load(fpath, map_location=map_location)
 
-                logger.info(f"Resume training at checkpoint {cfg.MODEL.MODEL_PATH}")
-                checkpoint = torch.load(fpath, map_location=map_location)
-
+            if cfg.TRAINER.IS_TRAIN:
+                logger.info(f"Resume training at checkpoint {fpath}")
+                
                 if optimizer is not None and "optimizer" in checkpoint.keys():
                     optimizer.load_state_dict(checkpoint["optimizer"])
                     logger.info("Resume optimizer")
@@ -111,34 +115,30 @@ class MyModel(nn.Module):
 
                 start_epoch = checkpoint["epoch"]
                 logger.info("Previous epoch: {}".format(start_epoch))
-            else:
-                start_epoch = 0
-                # for test
-                checkpoint = torch.load(cfg.MODEL.MODEL_PATH, map_location=map_location)
 
         except UnicodeDecodeError:
             pickle.load = partial(pickle.load, encoding="latin1")
             pickle.Unpickler = partial(pickle.Unpickler, encoding="latin1")
             checkpoint = torch.load(
-                cfg.MODEL.MODEL_PATH, pickle_module=pickle, map_location=map_location
+                fpath, pickle_module=pickle, map_location=map_location
             )
 
         except Exception:
-            logger.error('Unable to load checkpoint from "{}"'.format(cfg.MODEL.MODEL_PATH))
+            logger.error('Unable to load checkpoint from "{}"'.format(fpath))
             raise
 
         state_dict = checkpoint["state_dict"]
         epoch = checkpoint["epoch"]
         val_result = checkpoint["val_result"]
 
-        if val_result is None:
-            logger.info(f"Load {cfg.MODEL.MODEL_PATH} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME} (epoch={epoch}, val_result=Not available)")
-        else:
-            logger.info(f"Load {cfg.MODEL.MODEL_PATH} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME} (epoch={epoch}, val_result={val_result:.1f})")
+        logger.info(f"Load {fpath} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME} (epoch={epoch}, val_result={val_result:.1f})")
 
         self.load_state_dict(state_dict)
 
-        return start_epoch
+        if cfg.TRAINER.IS_TRAIN:
+            return start_epoch
+        
+        return 0
 
     def save_checkpoint(self, 
                         cfg,
