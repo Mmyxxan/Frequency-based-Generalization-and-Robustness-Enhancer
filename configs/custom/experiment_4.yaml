@@ -4,7 +4,7 @@ MODEL:
   TYPE: "Baseline"
   NAME: "CNNDet"
   # OUTPUT_DIR: f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}" # use value defined in defaults.py
-  MODEL_DIR: "D:/GitHub/Dassl.pytorch/output/cnn_det/model"
+  MODEL_DIR: "D:/GitHub/Dassl.pytorch/output/cnn_det/model" # to use default model dir of a specific model, set MODEL_DIR: ""
   MODEL_NAME: "model.pth.tar-1"
 
 DATASET:

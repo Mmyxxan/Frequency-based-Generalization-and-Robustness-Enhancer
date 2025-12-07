@@ -55,6 +55,14 @@ def reset_cfg(cfg, args):
     if args.eval_only:
         cfg.TRAINER.IS_TRAIN = False
 
+    # Dependency in config
+    cfg.MODEL.OUTPUT_DIR = f"output/{cfg.MODEL.TYPE}/{cfg.MODEL.NAME}"
+    cfg.TRAINER.OPTIM.MAX_EPOCH = cfg.TRAINER.NUM_EPOCHS
+
+    # Model dir and output dir
+    if not cfg.MODEL.MODEL_DIR:
+        cfg.MODEL.MODEL_DIR = f"{cfg.MODEL.OUTPUT_DIR}/model"
+
 def extend_cfg(cfg):
     """
     Add new config variables.
