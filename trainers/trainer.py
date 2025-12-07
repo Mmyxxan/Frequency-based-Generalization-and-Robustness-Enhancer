@@ -234,6 +234,42 @@ class AbstractTrainer:
         self.model_backward(loss)
         self.model_update()
 
+    def inspect_weights(self):
+        backbone = self.model.backbone
+        
+        if not hasattr(backbone, "backbone_list"):
+            logger.error("Backbone is not fused; no extractors to inspect.")
+            raise KeyError("Backbone is not fused; no extractors to inspect.")
+
+        num_extractors = len(backbone.backbone_list)
+        logger.info(f"Found {num_extractors} extractors!")
+        project_dim = backbone.projections[0].out_features  
+
+        classifier = self.model.classifier           # linear layer
+        W = classifier.weight.detach()               # shape: (C, total_dim)
+
+        contributions = []
+        start = 0
+
+        for idx, extractor_cls in enumerate(backbone.backbone_list):
+            end = start + project_dim
+            W_block = W[:, start:end]                 # slice for this extractor
+
+            contrib = W_block.abs().sum().item()      # L1 importance
+
+            contributions.append((extractor_cls.__name__, contrib))
+            start = end
+
+        # normalize
+        total = sum(c for _, c in contributions)
+        contributions_pct = [(name, c, c / total * 100) for name, c in contributions]
+
+        logger.info("=== Extractor Contribution Analysis ===")
+        for name, raw, pct in contributions_pct:
+            logger.info(f"{name:<25} | Raw: {raw:10.4f} | {pct:6.2f}%")
+
+        return contributions_pct
+
 class StandardTrainer(AbstractTrainer):
     def __init__(self, cfg):
         super().__init__(cfg)

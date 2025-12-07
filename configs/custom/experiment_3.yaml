@@ -1,0 +1,14 @@
+# Inspect Fused_CNN_ResNet50_CLIP_ViT_512_Concat's weights
+# python main.py --config-file "configs/custom/experiment_3.yaml" --inspect-weights
+MODEL:
+  TYPE: "MyModel"
+  NAME: "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
+  # OUTPUT_DIR: f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}" # use value defined in defaults.py
+  MODEL_DIR: "D:/GitHub/Dassl.pytorch/output/cnn_spot/model"
+  MODEL_NAME: "model-best.pth.tar"
+
+TRAINER:
+  TYPE: 0
+  USE_CUDA: False
+  IS_TRAIN: False
+  NO_TEST: True # val after epoch and test after train

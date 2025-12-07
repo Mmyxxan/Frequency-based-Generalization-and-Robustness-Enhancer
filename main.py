@@ -106,6 +106,11 @@ def main(args):
         trainer.before_train()
         trainer.test()
         return
+    
+    if args.inspect_weights:
+        trainer.before_train()
+        trainer.inspect_weights()
+        return
 
     trainer.train()
 
@@ -141,6 +146,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--eval-only", action="store_true", help="evaluation only"
+    )
+    parser.add_argument(
+        "--inspect-weights", action="store_true", help="inspect weights only"
     )
     parser.add_argument(
         "--model-dir",
