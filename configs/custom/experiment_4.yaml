@@ -1,0 +1,48 @@
+# Config file for testing baselines
+# python main.py --config-file "configs/custom/experiment_4.yaml" --eval-only
+MODEL:
+  TYPE: "Baseline"
+  NAME: "CNNDet"
+  # OUTPUT_DIR: f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}" # use value defined in defaults.py
+  MODEL_DIR: "D:/GitHub/Dassl.pytorch/output/cnn_det/model"
+  MODEL_NAME: "model.pth.tar-1"
+
+DATASET:
+  NAME: "ProGAN"
+  DATA_DIR: "D:/GitHub/Dassl.pytorch/dassl/data/datasets/cnn_spot/test/progan"
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 32
+
+TRANSFORM:
+  TRANSFORMS: ["to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: False
+  INPUT_SIZE: (224, 224)
+  # NORMALIZE
+  INPUT_MEAN: [0.485, 0.456, 0.406]
+  INPUT_STD: [0.229, 0.224, 0.225]
+  # GAUSSIAN BLUR
+  GB_P: 0.5
+  GB_K: 21
+  GB_SIGMA: (0.1, 3.0)
+  # JPEG COMPRESSION
+  JPEG_P: 0.5
+  JPEG_QUALITY: (30, 99)
+  # TEST
+  NO_TRANSFORM_TEST: False
+
+TRAINER:
+  TYPE: 1
+  USE_CUDA: False
+  IS_TRAIN: False
+  NUM_EPOCHS: 1
+  NO_TEST: False # val after epoch and test after train
+  TEST_FINAL_MODEL: "best_val"
+  OPTIM:
+    NAME: "sgd"
+    LR: 0.002
+    STEPSIZE: [20]
+
+EVALUATOR:
+  COMPUTE_CONFUSION_MATRIX: False

@@ -1,5 +1,8 @@
 # should implement summary writer tensorboard
 # should add drop out config and in classifier
+# write .sh files to run experiments
+# implement Co-Spy and several other baselines
+# visualize Fourier/Jacobians + JaFR training, truefake upload and testing
 
 import argparse
 import torch

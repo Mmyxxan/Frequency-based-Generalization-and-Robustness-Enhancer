@@ -345,3 +345,129 @@ class StandardTrainer(AbstractTrainer):
 
         return input, label
         
+class BaselineTester(AbstractTrainer):
+    def __init__(self, cfg):
+        self.cfg = cfg
+        # Set up device
+        if self.cfg.TRAINER.USE_CUDA:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+
+        # Build model
+        self.model = build_model(self.cfg)
+        self.model.model.to(self.device)
+        logger.info(f"Number of params: {count_num_param(self.model.model, trainable_only=False):,}")
+        # Detect devices
+        device_count = torch.cuda.device_count()
+        if device_count > 1:
+            logger.info(f"Detected {device_count} GPUs (use nn.DataParallel)")
+            self.model = nn.DataParallel(self.model)
+
+        # Build test loader
+        self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
+        logger.info("Successfully build test loader!")
+
+        # Build evaluator
+        self.evaluator = build_evaluator(self.cfg)
+        logger.info("Successfully build evaluator!")
+
+        logger.info("Successfully build BaselineTester!")
+
+    def set_model_mode(self, mode="test"):
+        if mode == "test":
+            self.model.model.eval()
+        else:
+            logger.error(f"Unknown key {mode}")
+            raise KeyError(f"Unknown key {mode}")
+
+    def train(self):
+        pass
+
+    def before_train(self):
+        self.model.load_checkpoint(self.cfg)
+
+        self.time_start = time.time()
+
+    def before_epoch(self):
+        pass
+
+    def run_epoch(self):
+        pass
+
+    def after_epoch(self):
+        pass
+
+    def after_train(self):
+        pass
+    
+    @torch.no_grad()
+    def test(self, split="test"):
+        split = "test" # only test in this trainer
+
+        self.set_model_mode(split)
+        self.evaluator.reset()
+
+        data_loader = self.test_loader
+
+        logger.info(f"Evaluate on the *test* set")
+
+        for batch_idx, batch in enumerate(tqdm(data_loader)):
+            input, label = self.parse_batch_test(batch)
+            output = self.model_inference(input)
+            self.evaluator.process(output, label)
+
+        results = self.evaluator.evaluate()
+
+        # Show elapsed time
+        elapsed = round(time.time() - self.time_start)
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+        logger.info(f"Elapsed: {elapsed}")
+
+        return list(results.values())[0]
+    
+    def model_inference(self, input):
+        return self.model.forward(input)
+
+    def parse_batch_test(self, batch):
+        input = batch[0]
+        label = batch[1]
+
+        if isinstance(input, list):
+            input = [x.to(self.device) for x in input]
+        else:
+            input = input.to(self.device)
+
+        label = label.to(self.device)
+
+        return input, label
+
+    def get_current_lr(self):
+        pass
+    
+    def update_lr(self):
+        pass
+    
+    def model_zero_grad(self):
+        pass
+
+    def detect_anomaly(self, loss):
+        pass
+
+    def model_backward(self, loss):
+        pass
+
+    def model_update(self):
+        pass
+    
+    def model_backward_and_update(self, loss):
+        pass
+
+    def inspect_weights(self):
+        pass
+    
+    def forward_backward(self, batch):
+        pass
+
+    def parse_batch_train(self, batch):
+        pass

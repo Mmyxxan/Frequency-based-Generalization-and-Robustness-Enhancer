@@ -1,4 +1,4 @@
-from .trainer import StandardTrainer
+from .trainer import *
 
 import logging
 logger = logging.getLogger(__name__)
@@ -6,6 +6,8 @@ logger = logging.getLogger(__name__)
 def build_trainer(cfg):
     if cfg.TRAINER.TYPE == 0:
         return StandardTrainer(cfg=cfg)
+    elif cfg.TRAINER.TYPE == 1:
+        return BaselineTester(cfg=cfg)
     else:
         logger.error(f"Unknown trainer type: {cfg.TRAINER.TYPE}")
         raise ValueError(f"Unknown trainer type: {cfg.TRAINER.TYPE}")

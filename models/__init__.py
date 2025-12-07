@@ -3,6 +3,9 @@ from .fused.clip_vit import CLIPViT
 from .fused.cnn_resnet50 import ResNet50
 from .fused.clip_vit_fare import CLIPViT_FARE
 
+from .baselines.clipping import clipmodel
+from .baselines.cnndet import resnet50
+
 import torch
 import torch.nn as nn
 
@@ -33,16 +36,55 @@ def build_backbone(cfg):
     
 class Baseline:
     def __init__(self, cfg, **kwargs):
-        super().__init__()
+        logger.info(f"Loading {cfg.MODEL.NAME}")
+        if cfg.MODEL.NAME == "CLIPping":
+            self.model = clipmodel()
+        elif cfg.MODEL.NAME == "CNNDet":
+            if cfg.DATASET.NUM_CLASSES == 2:
+                self.model = resnet50(num_classes=1)
+            else:
+                logger.error(f"Incompatible # of classes of dataset: {cfg.DATASET.NUM_CLASSES}")
+                raise ValueError(f"Incompatible # of classes of dataset: {cfg.DATASET.NUM_CLASSES}")
+        else:
+            logger.error(f"Unknown model name: {cfg.MODEL.NAME}")
+            raise ValueError(f"Unknown model name: {cfg.MODEL.NAME}")
 
     def forward(self, x):
-        pass
+        return self.model(x)
 
     def load_checkpoint(self, cfg):
-        pass
+        fpath = osp.join(cfg.MODEL.MODEL_DIR, cfg.MODEL.MODEL_NAME)
 
-    def save_checkpoint(self, cfg):
-        pass
+        if not osp.exists(fpath):
+            logger.error('File is not found at "{}"'.format(fpath))
+            raise FileNotFoundError('File is not found at "{}"'.format(fpath))
+        
+        map_location = None if cfg.TRAINER.USE_CUDA else "cpu"
+
+        try:
+            checkpoint = torch.load(fpath, map_location=map_location)
+
+        except UnicodeDecodeError:
+            pickle.load = partial(pickle.load, encoding="latin1")
+            pickle.Unpickler = partial(pickle.Unpickler, encoding="latin1")
+            checkpoint = torch.load(
+                fpath, pickle_module=pickle, map_location=map_location
+            )
+
+        except Exception:
+            logger.error('Unable to load checkpoint from "{}"'.format(fpath))
+            raise
+
+        if "state_dict" not in checkpoint:
+            if "model" in checkpoint:
+                state_dict = checkpoint['model']
+            else:
+                state_dict = checkpoint
+        else:
+            state_dict = checkpoint["state_dict"]
+
+        logger.info(f"Load {fpath} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME}")
+        self.model.load_state_dict(state_dict)
 
 class MyModel(nn.Module):
     def __init__(self, cfg, **kwargs):
@@ -98,20 +140,6 @@ class MyModel(nn.Module):
         try:
             checkpoint = torch.load(fpath, map_location=map_location)
 
-            if cfg.TRAINER.IS_TRAIN:
-                logger.info(f"Resume training at checkpoint {fpath}")
-                
-                if optimizer is not None and "optimizer" in checkpoint.keys():
-                    optimizer.load_state_dict(checkpoint["optimizer"])
-                    logger.info("Resume optimizer")
-
-                if scheduler is not None and "scheduler" in checkpoint.keys():
-                    scheduler.load_state_dict(checkpoint["scheduler"])
-                    logger.info("Resume scheduler")
-
-                start_epoch = checkpoint["epoch"]
-                logger.info("Previous epoch: {}".format(start_epoch))
-
         except UnicodeDecodeError:
             pickle.load = partial(pickle.load, encoding="latin1")
             pickle.Unpickler = partial(pickle.Unpickler, encoding="latin1")
@@ -122,6 +150,20 @@ class MyModel(nn.Module):
         except Exception:
             logger.error('Unable to load checkpoint from "{}"'.format(fpath))
             raise
+
+        if cfg.TRAINER.IS_TRAIN:
+            logger.info(f"Resume training at checkpoint {fpath}")
+            
+            if optimizer is not None and "optimizer" in checkpoint.keys():
+                optimizer.load_state_dict(checkpoint["optimizer"])
+                logger.info("Resume optimizer")
+
+            if scheduler is not None and "scheduler" in checkpoint.keys():
+                scheduler.load_state_dict(checkpoint["scheduler"])
+                logger.info("Resume scheduler")
+
+            start_epoch = checkpoint["epoch"]
+            logger.info("Previous epoch: {}".format(start_epoch))
 
         state_dict = checkpoint["state_dict"]
         epoch = checkpoint["epoch"]
