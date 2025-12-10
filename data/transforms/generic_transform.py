@@ -3,6 +3,8 @@ from torchvision.transforms import (
     RandomApply, Resize, Compose, ToTensor, Normalize, RandomHorizontalFlip, GaussianBlur
 )
 from torchvision.transforms.v2 import JPEG
+import numpy as np
+import torch
 
 from models import MODEL_TO_BACKBONES
 
@@ -31,6 +33,15 @@ class BackbonePreprocessWrapper:
 
     def __call__(self, x):
         return [backbone.preprocess(x) for backbone in self.backbones]
+    
+class VisualizePreprocessWrapper:
+    def __init__(self):
+        pass
+
+    def __call__(self, img):
+        img = np.array(img, dtype=np.float32) / 255.0 # HWC, float32
+        img = torch.tensor(img).permute(2, 0, 1) # convert to tensor CHW
+        return img
 
 def build_model_transform(cfg):
     if cfg.MODEL.NAME in MODEL_TO_BACKBONES:
@@ -40,7 +51,10 @@ def build_model_transform(cfg):
         logger.error(f"Unknown model name: {cfg.MODEL.NAME}")
         raise ValueError(f"Unknown model name: {cfg.MODEL.NAME}")
 
-def build_transform(cfg, is_train):
+def build_transform(cfg, is_train, is_visualize=False):
+    if is_visualize:
+        return VisualizePreprocessWrapper()
+
     choices = cfg.TRANSFORM.TRANSFORMS
 
     for choice in choices:

@@ -2,6 +2,7 @@ import time
 import datetime
 from tqdm import tqdm
 import os.path as osp
+import json
 
 import torch
 import torch.nn as nn
@@ -14,6 +15,9 @@ from utils import count_num_param, AverageMeter, MetricMeter
 from evaluators import build_evaluator, compute_accuracy
 from .optimizer import build_optimizer
 from .lr_scheduler import build_lr_scheduler
+
+from models import Baseline
+from utils import *
 
 import logging
 logger = logging.getLogger(__name__)
@@ -471,3 +475,351 @@ class BaselineTester(AbstractTrainer):
 
     def parse_batch_train(self, batch):
         pass
+
+class JaFRTrainer(AbstractTrainer):
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+        # Set up device
+        if self.cfg.TRAINER.USE_CUDA:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+
+        # Build model
+        if not self.cfg.JaFR.VISUALIZE_ONLY or self.cfg.JaFR.VISUALIZE_JACOBIAN_MODEL:
+            self.model = build_model(self.cfg)
+            if isinstance(self.model, Baseline):
+                self.model.model.to(self.device)
+            else:
+                self.model.to(self.device)
+            logger.info(f"Number of params: {count_num_param(self.model, trainable_only=False):,}")
+            logger.info(f"Number of trainable params: {count_num_param(self.model, trainable_only=True):,}")
+        
+        # Detect devices
+        device_count = torch.cuda.device_count()
+        if device_count > 1:
+            logger.info(f"Detected {device_count} GPUs (use nn.DataParallel)")
+            self.model = nn.DataParallel(self.model)
+
+        if self.cfg.TRAINER.IS_TRAIN:
+            logger.info(f"Training {self.cfg.MODEL.NAME}")
+            # If train, initialize best result
+            self.best_result = np.inf # best
+            # If train, set up number of epochs by default
+            self.start_epoch = 0
+            self.last_epoch = self.cfg.TRAINER.NUM_EPOCHS
+            # If train, build optimizer and lr_scheduler
+            self.optimizer = build_optimizer(self.model, self.cfg.TRAINER.OPTIM)
+            self.scheduler = build_lr_scheduler(self.optimizer, self.cfg.TRAINER.OPTIM)
+            # If train, build train and val loader
+            self.train_loader = build_dataloader(self.cfg, is_train=True, split="train")
+            logger.info("Successfully build train loader!")
+            if not self.cfg.TRAINER.NO_TEST:
+                self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
+                logger.info("Successfully build val loader!")
+            else:
+                logger.info("No test, no need to build val loader!")
+
+        # Build test loader
+        if not self.cfg.TRAINER.NO_TEST or self.cfg.JaFR.VISUALIZE_JACOBIAN_MODEL:
+            self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
+            logger.info("Successfully build test loader!")
+        else:
+            logger.info("No test and no visualize fourier of dataset, no need to build test loader!")
+
+        # Build evaluator
+        if not self.cfg.TRAINER.NO_TEST:
+            self.evaluator = build_evaluator(self.cfg)
+            logger.info("Successfully build evaluator!")
+        else:
+            logger.info("No test, no need to build evaluator!")
+        
+        # Build dataloader for visualization
+        if self.cfg.JaFR.VISUALIZE_FOURIER_DATASET:
+            self.visualize_dataloader = build_dataloader(self.cfg, is_train=False, split="test", is_visualize=True)
+
+    def set_model_mode(self, mode):
+        if mode == "train":
+            if isinstance(self.model, Baseline):
+                self.model.model.train()
+            else:
+                self.model.train()
+        elif mode in ["val", "test"]:
+            if isinstance(self.model, Baseline):
+                self.model.model.eval()
+            else:
+                self.model.eval()
+        else:
+            logger.error(f"Unknown key {mode}")
+            raise KeyError(f"Unknown key {mode}")
+        
+    # keep generic train function as abstract trainer
+
+    def before_train(self):
+        if isinstance(self.model, Baseline):
+            self.model.load_checkpoint(self.cfg)
+        else:
+            optimizer = getattr(self, "optimizer", None)
+            scheduler = getattr(self, "scheduler", None)
+
+            self.start_epoch = self.model.resume_or_load_checkpoint(
+                self.cfg,
+                optimizer,
+                scheduler
+            )
+
+        self.time_start = time.time()
+
+    # keep generic before_epoch function as abstract trainer
+
+    def run_epoch(self):
+        self.set_model_mode("train")
+
+        losses = MetricMeter()
+        batch_time = AverageMeter()
+        data_time = AverageMeter()
+        self.num_batches = len(self.train_loader)
+
+        end = time.time()
+
+        for self.batch_idx, batch in enumerate(self.train_loader):
+            data_time.update(time.time() - end)
+            loss_summary = self.forward_backward(batch)
+            batch_time.update(time.time() - end)
+            losses.update(loss_summary)
+
+            meet_freq = (self.batch_idx + 1) % self.cfg.TRAINER.PRINT_FREQ == 0
+            only_few_batches = self.num_batches < self.cfg.TRAINER.PRINT_FREQ
+
+            if meet_freq or only_few_batches:
+                nb_remain = 0
+                nb_remain += self.num_batches - self.batch_idx - 1
+                nb_remain += (
+                    self.last_epoch - self.epoch - 1
+                ) * self.num_batches
+                eta_seconds = batch_time.avg * nb_remain
+                eta = str(datetime.timedelta(seconds=int(eta_seconds)))
+
+                info = []
+                info += [f"epoch [{self.epoch + 1}/{self.last_epoch}]"]
+                info += [f"batch [{self.batch_idx + 1}/{self.num_batches}]"]
+                info += [f"time {batch_time.val:.3f} ({batch_time.avg:.3f})"]
+                info += [f"data {data_time.val:.3f} ({data_time.avg:.3f})"]
+                info += [f"{losses}"]
+                info += [f"lr {self.get_current_lr():.4e}"]
+                info += [f"eta {eta}"]
+                logger.info(" ".join(info))
+
+            end = time.time()
+
+    def after_epoch(self):
+        last_epoch = (self.epoch + 1) == self.last_epoch
+        do_test = not self.cfg.TRAINER.NO_TEST
+        meet_checkpoint_freq = (
+            (self.epoch + 1) % self.cfg.TRAINER.CHECKPOINT_FREQ == 0
+            if self.cfg.TRAINER.CHECKPOINT_FREQ > 0 else False
+        )
+
+        if do_test and self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
+            curr_result = self.test(split="val")[1] # take the test loss for representative
+            is_best = curr_result > self.best_result
+            if is_best:
+                self.best_result = curr_result
+                self.model.save_checkpoint(
+                    cfg=self.cfg,
+                    state={
+                        "state_dict": self.model.state_dict(),
+                        "epoch": self.epoch + 1,
+                        "optimizer": self.optimizer.state_dict(),
+                        "scheduler": self.scheduler.state_dict(),
+                        "val_result": self.best_result
+                    },
+                    is_best=True,
+                )
+
+        if meet_checkpoint_freq or last_epoch:
+            self.model.save_checkpoint(
+                cfg=self.cfg,
+                state={
+                    "state_dict": self.model.state_dict(),
+                    "epoch": self.epoch + 1,
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict(),
+                    "val_result": None
+                },
+                is_best=False,
+            )
+
+    # keep generic after_train function as abstract trainer
+
+    @torch.no_grad()
+    def test(self, split="test"):
+        self.set_model_mode(split)
+        self.evaluator.reset()
+
+        if split == "test":
+            data_loader = self.test_loader
+        elif split == "val":
+            data_loader = self.val_loader
+
+        logger.info(f"Evaluate on the *{split}* set")
+
+        total_loss = 0.0
+        n_batches = 0
+
+        for batch_idx, batch in enumerate(tqdm(data_loader)):
+            input, label = self.parse_batch_test(batch)
+            output = self.model_inference(input)
+            loss = self.compute_loss(input=input, output=output, label=label)[0]
+
+            total_loss += loss.item() # add scalar
+            n_batches += 1
+
+            self.evaluator.process(output, label)
+
+        # Compute average test loss
+        avg_loss = total_loss / n_batches
+
+        results = self.evaluator.evaluate()
+
+        # Show elapsed time
+        elapsed = round(time.time() - self.time_start)
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+        logger.info(f"Elapsed: {elapsed}")
+
+        return list(results.values())[0], avg_loss
+    
+    def model_inference(self, input):
+        if isinstance(self.model, Baseline):
+            return self.model.forward(input)
+        else:
+            return self.model(input)
+    
+    # keep generic parse_batch_test, get_current_lr, update_lr, model_zero_grad, detect_anomaly, model_backward, model_update, model_backward_and_update, inspect_weights functions as abstract trainer
+
+    def compute_loss(self, input, output, label):
+        if isinstance(self.model, Baseline):
+            model = self.model.model
+        else:
+            model = self.model
+        
+        loss = F.cross_entropy(output, label)
+
+        # Only applicable to square training images like ProGAN
+        if self.cfg.TRAINER.USE_CUDA:
+            low_freq_bias_reg = torch.zeros(1).cuda()[0]
+        else: 
+            low_freq_bias_reg = torch.zeros(1)[0]
+
+        if self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA != 0.0 or self.cfg.TRAINER.JaFR.TRACK_LOW_FREQ_BIAS_LOSS:
+            if self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA == 0.0:                
+                grad_for_backprop = get_input_grad(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
+                                    delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=False)
+                grad_for_backprop = grad_for_backprop.detach()
+            else:
+                grad_for_backprop = get_input_grad(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
+                                    delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=True)
+
+            grad_to_reg_freq = grad_for_backprop[:]
+
+            chmean_grad_freq_norm = compute_fourier_map(grad_to_reg_freq)
+
+            grad_low_freq_bias_value = compute_low_freq_bias(chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2], 
+                                            max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE, reduce_type=self.cfg.TRAINER.JaFR.FREQ_BIAS_REDUCE_TYPE, ignore_first_basis=self.cfg.TRAINER.JaFR.FREQ_BIAS_IGNORE_FIRST_BASIS)
+                
+            low_freq_bias_reg += self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA * -1 * grad_low_freq_bias_value
+
+            if self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA != 0.0 and self.epoch > self.cfg.TRAINER.JaFR.EPOCHS_WARMUP_BEFORE_LOW_FREQ_BIAS_REG:
+                loss += low_freq_bias_reg
+            elif self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA == 0.0 and self.cfg.TRAINER.JaFR.TRACK_LOW_FREQ_BIAS_LOSS:
+                low_freq_bias_reg += -1 * grad_low_freq_bias_value
+
+            # sample01_low_freq_norm = chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2][0,1]
+            # sample10_low_freq_norm = chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2][1,0]
+
+            # if self.cfg.DATASET.NAME == "CNNSpot":
+            #     sample_high_freq_norm = chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2][128,128]
+            # else:
+            #     logger.error(f"Unapplicable dataset {self.cfg.DATASET.NAME}")
+            #     raise ValueError(f"Unapplicable dataset {self.cfg.DATASET.NAME}")
+
+            # logger.info('01_low_freq_norm: {}'.format(sample01_low_freq_norm.item()))
+            # logger.info('10_low_freq_norm: {}'.format(sample10_low_freq_norm.item()))
+            # logger.info('high_freq_norm: {}'.format(sample_high_freq_norm.item()))
+
+        return loss, low_freq_bias_reg
+        
+    def forward_backward(self, batch):
+        input, label = self.parse_batch_train(batch)
+        output = self.model(input)
+        loss, low_freq_bias_reg = self.compute_loss(input=input, output=output, label=label)
+        self.model_backward_and_update(loss)
+
+        loss_summary = {
+            "loss": loss.item(),
+            "acc": compute_accuracy(output, label)[0].item(),
+            "low_freq_bias_reg": low_freq_bias_reg,
+        }
+
+        if (self.batch_idx + 1) == self.num_batches:
+            self.update_lr()
+
+        return loss_summary
+
+    def parse_batch_train(self, batch):
+        input = batch[0]
+        label = batch[1]
+
+        if isinstance(input, list):
+            input = [x.to(self.device) for x in input]
+        else:
+            input = input.to(self.device)
+
+        label = label.to(self.device)
+
+        self.delta = torch.zeros_like(input, requires_grad=True)
+
+        return input + self.delta, label
+
+    def visualize_fourier_dataset(self):
+        time_start = time.time()
+
+        logger.info("Running Fourier frequency bias analysis...")
+
+        analysis_output_dir = f"output/{self.cfg.DATASET.NAME}/analysis"
+        mkdir_if_missing(analysis_output_dir)
+
+        cor_diff_low_freq_bias_value = analyze_corruption_fourier_and_freq_bias(self.visualize_dataloader, self.visualize_dataloader, analysis_output_dir=analysis_output_dir, output_dir_suffix="", cuda=self.cfg.TRAINER.IS_TRAIN)
+
+        logger.info("Fourier analysis result:", cor_diff_low_freq_bias_value)
+
+        json_path = os.path.join(analysis_output_dir, "analysis_results.json")
+        with open(json_path, 'w') as f:
+            json.dump({"fourier_bias": cor_diff_low_freq_bias_value.cpu().numpy().tolist()}, f)
+        logger.info(f"Saved results to {json_path}.")
+    
+        time_elapsed = time.time() - time_start
+        time_elapsed = str(datetime.timedelta(seconds=time_elapsed))
+        logger.info(f"Elapsed: {time_elapsed}")
+
+    def visualize_jacobian_model(self):
+        if isinstance(self.model, Baseline):
+            model = self.model.model
+        else:
+            model = self.model
+
+        analysis_output_dir = f"output/{self.cfg.MODEL.TYPE}_{self.cfg.MODEL.NAME}_{self.cfg.DATASET.NAME}/analysis"
+        mkdir_if_missing(analysis_output_dir)
+
+        grad_low_freq_bias, img_low_freq_bias = analyze_save_ig(self.test_loader, model, None, self.cfg.TRAINER.JaFR.EPS, None, model_output_dir=analysis_output_dir,
+                                                        max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE)
+        randinit_grad_low_freq_bias, _ = analyze_save_ig(self.test_loader, model, None, self.cfg.TRAINER.JaFR.EPS, None, model_output_dir=analysis_output_dir, delta_init='random_uniform', output_dir_suffix='_randinitgrad',
+                                            max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE)
+        
+        logger.info('[last: test on 10k points] grad_low_freq_bias {}, img_low_freq_bias {}, randinit_grad_low_freq_bias {}'.format(grad_low_freq_bias, img_low_freq_bias, randinit_grad_low_freq_bias))
+        eval_results += 'grad_low_freq_bias {}, img_low_freq_bias {}, randinit_grad_low_freq_bias {}'.format(grad_low_freq_bias, img_low_freq_bias, randinit_grad_low_freq_bias)
+
+        output_eval_file = os.path.join(analysis_output_dir, 'eval_results.txt')
+        with open(output_eval_file, 'w') as f:
+            f.write(eval_results)

@@ -3,6 +3,7 @@ from PIL import Image
 import os
 import os.path as osp
 from collections import Counter
+import torch
 
 from utils import listdir_nohidden
 
@@ -79,6 +80,8 @@ class MyImageDataset(Dataset):
 
         if self.transform:
             image = self.transform(image)
+
+        label = torch.tensor(label, dtype=torch.long)
 
         return image, label
 

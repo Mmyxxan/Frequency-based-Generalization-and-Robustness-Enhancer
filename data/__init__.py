@@ -9,8 +9,8 @@ from .transforms.generic_transform import build_transform
 import logging
 logger = logging.getLogger(__name__)
 
-def build_dataset(cfg, is_train, split):
-    transform = build_transform(cfg=cfg, is_train=is_train)
+def build_dataset(cfg, is_train, split, is_visualize=False):
+    transform = build_transform(cfg=cfg, is_train=is_train, is_visualize=is_visualize)
 
     if cfg.DATASET.NAME == "myxxanaplt/TrueFake-647GB":
         logger.info(f"Loading dataset {cfg.DATASET.NAME} from HuggingFace...")
@@ -26,8 +26,8 @@ def build_dataset(cfg, is_train, split):
     else:
         return MyImageDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
 
-def build_dataloader(cfg, is_train, split):
-    dataset = build_dataset(cfg=cfg, is_train=is_train, split=split)
+def build_dataloader(cfg, is_train, split, is_visualize=False):
+    dataset = build_dataset(cfg=cfg, is_train=is_train, split=split, is_visualize=is_visualize)
     is_iterable = isinstance(dataset, IterableDataset)
 
     return DataLoader(
