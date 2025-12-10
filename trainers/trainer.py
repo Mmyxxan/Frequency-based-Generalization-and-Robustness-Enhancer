@@ -491,10 +491,12 @@ class JaFRTrainer(AbstractTrainer):
             self.model = build_model(self.cfg)
             if isinstance(self.model, Baseline):
                 self.model.model.to(self.device)
+                logger.info(f"Number of params: {count_num_param(self.model.model, trainable_only=False):,}")
+                logger.info(f"Number of trainable params: {count_num_param(self.model.model, trainable_only=True):,}")
             else:
                 self.model.to(self.device)
-            logger.info(f"Number of params: {count_num_param(self.model, trainable_only=False):,}")
-            logger.info(f"Number of trainable params: {count_num_param(self.model, trainable_only=True):,}")
+                logger.info(f"Number of params: {count_num_param(self.model, trainable_only=False):,}")
+                logger.info(f"Number of trainable params: {count_num_param(self.model, trainable_only=True):,}")
         
         # Detect devices
         device_count = torch.cuda.device_count()
@@ -715,18 +717,18 @@ class JaFRTrainer(AbstractTrainer):
         if self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA != 0.0 or self.cfg.TRAINER.JaFR.TRACK_LOW_FREQ_BIAS_LOSS:
             if self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA == 0.0:                
                 grad_for_backprop = get_input_grad(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
-                                    delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=False)
+                                    delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=False, cuda=self.cfg.TRAINER.USE_CUDA)
                 grad_for_backprop = grad_for_backprop.detach()
             else:
                 grad_for_backprop = get_input_grad(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
-                                    delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=True)
+                                    delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=True, cuda=self.cfg.TRAINER.USE_CUDA)
 
             grad_to_reg_freq = grad_for_backprop[:]
 
             chmean_grad_freq_norm = compute_fourier_map(grad_to_reg_freq)
 
             grad_low_freq_bias_value = compute_low_freq_bias(chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2], 
-                                            max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE, reduce_type=self.cfg.TRAINER.JaFR.FREQ_BIAS_REDUCE_TYPE, ignore_first_basis=self.cfg.TRAINER.JaFR.FREQ_BIAS_IGNORE_FIRST_BASIS)
+                                            max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE, reduce_type=self.cfg.TRAINER.JaFR.FREQ_BIAS_REDUCE_TYPE, ignore_first_basis=self.cfg.TRAINER.JaFR.FREQ_BIAS_IGNORE_FIRST_BASIS, cuda=self.cfg.TRAINER.USE_CUDA)
                 
             low_freq_bias_reg += self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA * -1 * grad_low_freq_bias_value
 
@@ -787,12 +789,12 @@ class JaFRTrainer(AbstractTrainer):
 
         logger.info("Running Fourier frequency bias analysis...")
 
-        analysis_output_dir = f"output/{self.cfg.DATASET.NAME}/analysis"
+        analysis_output_dir = f"output/JaFR/{self.cfg.DATASET.NAME}/analysis"
         mkdir_if_missing(analysis_output_dir)
 
-        cor_diff_low_freq_bias_value = analyze_corruption_fourier_and_freq_bias(self.visualize_dataloader, self.visualize_dataloader, analysis_output_dir=analysis_output_dir, output_dir_suffix="", cuda=self.cfg.TRAINER.IS_TRAIN)
+        cor_diff_low_freq_bias_value = analyze_corruption_fourier_and_freq_bias(self.visualize_dataloader, self.visualize_dataloader, analysis_output_dir=analysis_output_dir, output_dir_suffix="", cuda=self.cfg.TRAINER.USE_CUDA)
 
-        logger.info("Fourier analysis result:", cor_diff_low_freq_bias_value)
+        logger.info(f"Fourier analysis result: {cor_diff_low_freq_bias_value}")
 
         json_path = os.path.join(analysis_output_dir, "analysis_results.json")
         with open(json_path, 'w') as f:
@@ -804,22 +806,30 @@ class JaFRTrainer(AbstractTrainer):
         logger.info(f"Elapsed: {time_elapsed}")
 
     def visualize_jacobian_model(self):
+        time_start = time.time()
+
+        logger.info("Running Jacobian analysis for model...")
+
         if isinstance(self.model, Baseline):
             model = self.model.model
         else:
             model = self.model
 
-        analysis_output_dir = f"output/{self.cfg.MODEL.TYPE}_{self.cfg.MODEL.NAME}_{self.cfg.DATASET.NAME}/analysis"
+        analysis_output_dir = f"output/JaFR/{self.cfg.MODEL.TYPE}_{self.cfg.MODEL.NAME}_{self.cfg.DATASET.NAME}/analysis"
         mkdir_if_missing(analysis_output_dir)
 
         grad_low_freq_bias, img_low_freq_bias = analyze_save_ig(self.test_loader, model, None, self.cfg.TRAINER.JaFR.EPS, None, model_output_dir=analysis_output_dir,
-                                                        max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE)
+                                                        max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE, cuda=self.cfg.TRAINER.USE_CUDA)
         randinit_grad_low_freq_bias, _ = analyze_save_ig(self.test_loader, model, None, self.cfg.TRAINER.JaFR.EPS, None, model_output_dir=analysis_output_dir, delta_init='random_uniform', output_dir_suffix='_randinitgrad',
-                                            max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE)
+                                            max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE, cuda=self.cfg.TRAINER.USE_CUDA)
         
-        logger.info('[last: test on 10k points] grad_low_freq_bias {}, img_low_freq_bias {}, randinit_grad_low_freq_bias {}'.format(grad_low_freq_bias, img_low_freq_bias, randinit_grad_low_freq_bias))
-        eval_results += 'grad_low_freq_bias {}, img_low_freq_bias {}, randinit_grad_low_freq_bias {}'.format(grad_low_freq_bias, img_low_freq_bias, randinit_grad_low_freq_bias)
+        logger.info('grad_low_freq_bias {}, img_low_freq_bias {}, randinit_grad_low_freq_bias {}'.format(grad_low_freq_bias, img_low_freq_bias, randinit_grad_low_freq_bias))
+        eval_results = 'grad_low_freq_bias {}, img_low_freq_bias {}, randinit_grad_low_freq_bias {}'.format(grad_low_freq_bias, img_low_freq_bias, randinit_grad_low_freq_bias)
 
         output_eval_file = os.path.join(analysis_output_dir, 'eval_results.txt')
         with open(output_eval_file, 'w') as f:
             f.write(eval_results)
+
+        time_elapsed = time.time() - time_start
+        time_elapsed = str(datetime.timedelta(seconds=time_elapsed))
+        logger.info(f"Elapsed: {time_elapsed}")

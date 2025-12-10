@@ -1,4 +1,5 @@
 # Config file for testing baselines
+# For example: testing CNNDet on clean ProGAN
 # python main.py --config-file "configs/custom/experiment_4.yaml" --eval-only
 MODEL:
   TYPE: "Baseline"

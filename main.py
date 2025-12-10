@@ -3,6 +3,8 @@
 # write .sh files to run experiments
 # implement Co-Spy and several other baselines
 # visualize Fourier/Jacobians + JaFR training, truefake upload and testing
+# add more loggings and manage output directory structure for JaFR
+# review B_low numbers
 
 import argparse
 import torch
@@ -122,8 +124,17 @@ def main(args):
         trainer.before_train()
         trainer.inspect_weights()
         return
+    
+    if cfg.TRAINER.IS_TRAIN:
+        trainer.train()
 
-    trainer.train()
+    if cfg.TRAINER.TYPE == 2:
+        if not cfg.TRAINER.IS_TRAIN:
+            trainer.before_train()
+        if cfg.JaFR.VISUALIZE_FOURIER_DATASET:
+            trainer.visualize_fourier_dataset()
+        if cfg.JaFR.VISUALIZE_JACOBIAN_MODEL:
+            trainer.visualize_jacobian_model()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

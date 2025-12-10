@@ -34,13 +34,13 @@ def clamp(X, l, u, cuda=True):
     return torch.max(torch.min(X, u), l)
 
 
-def get_grad_np(model, batches, eps, opt, half_prec, rs=False, cross_entropy=True):
+def get_grad_np(model, batches, eps, opt, half_prec, rs=False, cross_entropy=True, cuda=True):
     grad_list = []
     for i, (X, y) in enumerate(batches):
         X, y = X.cuda(), y.cuda()
 
         if rs:
-            delta = get_uniform_delta(X.shape, eps, requires_grad=False)
+            delta = get_uniform_delta(X.shape, eps, requires_grad=False, cuda=cuda)
         else:
             delta = torch.zeros_like(X).cuda()
         delta.requires_grad = True
@@ -66,13 +66,13 @@ def get_grad_np(model, batches, eps, opt, half_prec, rs=False, cross_entropy=Tru
     return grads
 
 
-def get_input_grad(model, X, y, opt, eps, half_prec, delta_init='none', backprop=False, return_delta=False):
+def get_input_grad(model, X, y, opt, eps, half_prec, delta_init='none', backprop=False, return_delta=False, cuda=True):
     if delta_init == 'none':
         delta = torch.zeros_like(X, requires_grad=True)
     elif delta_init == 'random_uniform':
-        delta = get_uniform_delta(X.shape, eps, requires_grad=True)
+        delta = get_uniform_delta(X.shape, eps, requires_grad=True, cuda=cuda)
     elif delta_init == 'random_corner':
-        delta = get_uniform_delta(X.shape, eps, requires_grad=True)
+        delta = get_uniform_delta(X.shape, eps, requires_grad=True, cuda=cuda)
         delta = eps * torch.sign(delta)
     else:
         raise ValueError('wrong delta init')
@@ -143,8 +143,11 @@ def model_train(model, half_prec):
     model.train()
 
 
-def get_uniform_delta(shape, eps, requires_grad=True):
-    delta = torch.zeros(shape).cuda()
+def get_uniform_delta(shape, eps, requires_grad=True, cuda=True):
+    if cuda:
+        delta = torch.zeros(shape).cuda()
+    else:
+        delta = torch.zeros(shape)
     delta.uniform_(-eps, eps)
     delta.requires_grad = requires_grad
     return delta
@@ -357,7 +360,7 @@ def rob_acc_autoattack(batches, model, eps, pgd_alpha, opt, half_prec, attack_it
     return robust_acc, avg_loss
         
 
-def compute_low_freq_bias(fourier_map, max_pow=1, min_pow=-1, epsilon = 1e-05, reduce_type='sum', log_value=True, temperature=1, ignore_first_basis=False):
+def compute_low_freq_bias(fourier_map, max_pow=1, min_pow=-1, epsilon = 1e-05, reduce_type='sum', log_value=True, temperature=1, ignore_first_basis=False, cuda=True):
 
     if ignore_first_basis:
         fourier_map_to_use = fourier_map.clone()
@@ -365,7 +368,10 @@ def compute_low_freq_bias(fourier_map, max_pow=1, min_pow=-1, epsilon = 1e-05, r
     else:
         fourier_map_to_use = fourier_map
 
-    pow_range = torch.linspace(start=max_pow, end=min_pow, steps=fourier_map_to_use.shape[0]).cuda() + epsilon
+    if cuda:
+        pow_range = torch.linspace(start=max_pow, end=min_pow, steps=fourier_map_to_use.shape[0]).cuda() + epsilon
+    else:
+        pow_range = torch.linspace(start=max_pow, end=min_pow, steps=fourier_map_to_use.shape[0]) + epsilon
 
     if reduce_type == 'sumlog':
         fourier_map_to_log = fourier_map_to_use + epsilon # torch.Size([17, 17])
@@ -417,13 +423,13 @@ def analyze_corruption_fourier_and_freq_bias(clean_batches, cor_batches, half_pr
         cor_diff = X_cor - X
         
         # compute dft of imgs
-        cor_diff_fourier_map = torch.rfft(cor_diff, signal_ndim=2)
-        cor_diff_freq_norm = torch.norm(cor_diff_fourier_map, dim=-1)
+        cor_diff_fourier_map = torch.fft.rfft2(cor_diff, dim=(-2, -1), norm="backward")
+        cor_diff_freq_norm = torch.abs(cor_diff_fourier_map)
         all_cor_diff_freq_norm.append(cor_diff_freq_norm)
 
         # compute dft of imgs
-        img_fourier_map = torch.rfft(X, signal_ndim=2)
-        img_freq_norm = torch.norm(img_fourier_map, dim=-1)
+        img_fourier_map = torch.fft.rfft2(X, dim=(-2, -1), norm="backward")
+        img_freq_norm = torch.abs(img_fourier_map)
         all_img_freq_norm.append(img_freq_norm)
 
     save_dir = os.path.join(analysis_output_dir, 'corruption_fourier_analysis'+output_dir_suffix)
@@ -463,7 +469,7 @@ def analyze_corruption_fourier_and_freq_bias(clean_batches, cor_batches, half_pr
     torch.save(mean_cor_diff_freq_norm, os.path.join(save_dir, 'cor_diff_fourier_map.pt'))
 
     # compute fourier map's low frequency bias value
-    cor_diff_low_freq_bias_value = compute_low_freq_bias(mean_cor_diff_freq_norm[:1+mean_cor_diff_freq_norm.shape[0]//2], max_pow=1, min_pow=-1, temperature=1)
+    cor_diff_low_freq_bias_value = compute_low_freq_bias(mean_cor_diff_freq_norm[:1+mean_cor_diff_freq_norm.shape[0]//2], max_pow=1, min_pow=-1, temperature=1, cuda=cuda)
 
     mean_cor_diff_freq_norm_zeroconstant = mean_cor_diff_freq_norm[:]
     mean_cor_diff_freq_norm_zeroconstant[0,0] = 0
@@ -494,14 +500,14 @@ def analyze_save_ig(batches, model, opt, eps, half_prec, model_output_dir, delta
             X, y = X.cuda(), y.cuda()
         
         # compute dft of imgs
-        img_fourier_map = torch.rfft(X, signal_ndim=2)
-        img_freq_norm = torch.norm(img_fourier_map, dim=-1)
+        img_fourier_map = torch.fft.rfft2(X, dim=(-2, -1), norm="backward")
+        img_freq_norm = torch.abs(img_fourier_map)
         all_img_freq_norm.append(img_freq_norm)
 
         # compute dft of input gradients
-        grad = get_input_grad(model, X, y, opt, eps, half_prec, delta_init=delta_init)
-        grad_fourier_map = torch.rfft(grad, signal_ndim=2)
-        grad_freq_norm = torch.norm(grad_fourier_map, dim=-1)
+        grad = get_input_grad(model, X, y, opt, eps, half_prec, delta_init=delta_init, cuda=cuda)
+        grad_fourier_map = torch.fft.rfft2(grad, dim=(-2, -1), norm="backward")
+        grad_freq_norm = torch.abs(grad_fourier_map)
         all_grad_freq_norm.append(grad_freq_norm)
 
         if i * grad.shape[0] < num_saved_ig:
@@ -522,6 +528,7 @@ def analyze_save_ig(batches, model, opt, eps, half_prec, model_output_dir, delta
                 cax = ax.imshow(ch_ig.cpu(), interpolation='nearest')
                 cbar = fig.colorbar(cax)
                 fig.savefig(os.path.join(save_dir, 'ig_sample{}ch{}.jpeg'.format(ind, ch_ind)))
+                plt.close(fig)
         torch.save(saved_ig, os.path.join(save_dir, 'saved_ig.pt'))
 
     # draw fourier map of imgs
@@ -533,10 +540,11 @@ def analyze_save_ig(batches, model, opt, eps, half_prec, model_output_dir, delta
     cax = ax.imshow(mean_img_freq_norm[:1+mean_img_freq_norm.shape[0]//2].cpu(), interpolation='nearest')
     cbar = fig.colorbar(cax)
     fig.savefig(os.path.join(save_dir, 'img_fourier_map.jpeg'))
+    plt.close(fig)
     torch.save(mean_img_freq_norm, os.path.join(save_dir, 'img_fourier_map.pt'))
 
     # compute fourier map's low frequency bias value
-    img_low_freq_bias_value = compute_low_freq_bias(mean_img_freq_norm[:1+mean_img_freq_norm.shape[0]//2], max_pow=1, min_pow=-1, temperature=1)
+    img_low_freq_bias_value = compute_low_freq_bias(mean_img_freq_norm[:1+mean_img_freq_norm.shape[0]//2], max_pow=1, min_pow=-1, temperature=1, cuda=cuda)
 
     mean_img_freq_norm_zeroconstant = mean_img_freq_norm[:]
     mean_img_freq_norm_zeroconstant[0,0] = 0
@@ -545,6 +553,7 @@ def analyze_save_ig(batches, model, opt, eps, half_prec, model_output_dir, delta
     cax = ax.imshow(mean_img_freq_norm_zeroconstant[:1+mean_img_freq_norm_zeroconstant.shape[0]//2].cpu(), interpolation='nearest')
     cbar = fig.colorbar(cax)
     fig.savefig(os.path.join(save_dir, 'img_fourier_map_zeroconstant.jpeg'))
+    plt.close(fig)
 
     mean_img_freq_norm_thresholdconstant = mean_img_freq_norm[:]
     mean_img_freq_norm_thresholdconstant[0,0] = torch.max((mean_img_freq_norm_zeroconstant[:1+mean_img_freq_norm_zeroconstant.shape[0]//2])) * constant_threshold
@@ -553,7 +562,7 @@ def analyze_save_ig(batches, model, opt, eps, half_prec, model_output_dir, delta
     cax = ax.imshow(mean_img_freq_norm_thresholdconstant[:1+mean_img_freq_norm_thresholdconstant.shape[0]//2].cpu(), interpolation='nearest')
     cbar = fig.colorbar(cax)
     fig.savefig(os.path.join(save_dir, 'img_fourier_map_thresholdconstant.jpeg'))
-
+    plt.close(fig)
 
     # draw fourier map of input gradients
     all_grad_freq_norm = torch.cat(all_grad_freq_norm, dim=0)
@@ -564,9 +573,10 @@ def analyze_save_ig(batches, model, opt, eps, half_prec, model_output_dir, delta
     cax = ax.imshow(mean_grad_freq_norm[:1+mean_grad_freq_norm.shape[0]//2].cpu(), interpolation='nearest')
     cbar = fig.colorbar(cax)
     fig.savefig(os.path.join(save_dir, 'grad_fourier_map.jpeg'))
+    plt.close(fig)
     torch.save(mean_grad_freq_norm, os.path.join(save_dir, 'grad_fourier_map.pt'))
 
-    grad_low_freq_bias_value = compute_low_freq_bias(mean_grad_freq_norm[:1+mean_grad_freq_norm.shape[0]//2], max_pow=1, min_pow=-1, temperature=1)
+    grad_low_freq_bias_value = compute_low_freq_bias(mean_grad_freq_norm[:1+mean_grad_freq_norm.shape[0]//2], max_pow=1, min_pow=-1, temperature=1, cuda=cuda)
 
     mean_grad_freq_norm[0,0] = 0
     fig = plt.figure()
@@ -574,13 +584,14 @@ def analyze_save_ig(batches, model, opt, eps, half_prec, model_output_dir, delta
     cax = ax.imshow(mean_grad_freq_norm[:1+mean_grad_freq_norm.shape[0]//2].cpu(), interpolation='nearest')
     cbar = fig.colorbar(cax)
     fig.savefig(os.path.join(save_dir, 'grad_fourier_map_zeroconstant.jpeg'))
+    plt.close(fig)
 
     return grad_low_freq_bias_value, img_low_freq_bias_value
 
 
 def compute_fourier_map(grad, batch_average=True):
-    grad_fourier_map = torch.rfft(grad, signal_ndim=2)
-    grad_freq_norm = torch.norm(grad_fourier_map, dim=-1)
+    grad_fourier_map = torch.fft.rfft2(grad, dim=(-2, -1), norm="backward")
+    grad_freq_norm = torch.abs(grad_fourier_map)
     
     # average over channels
     if batch_average:

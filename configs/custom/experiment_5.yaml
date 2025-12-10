@@ -1,0 +1,38 @@
+# Visualize Fourier dataset ProGAN and Jacobian of CNNDet on ProGAN
+# python main.py --config-file "configs/custom/experiment_5.yaml"
+MODEL:
+  TYPE: "Baseline"
+  NAME: "CNNDet"
+  MODEL_DIR: "D:/GitHub/Dassl.pytorch/output/cnn_det/model"
+  MODEL_NAME: "model.pth.tar-1"
+
+DATASET:
+  NAME: "ProGAN"
+  DATA_DIR: "D:/GitHub/Dassl.pytorch/dassl/data/datasets/cnn_spot/test/progan"
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 32
+
+TRANSFORM:
+  TRANSFORMS: ["to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: False
+  INPUT_SIZE: (224, 224)
+  # NORMALIZE
+  INPUT_MEAN: [0.485, 0.456, 0.406]
+  INPUT_STD: [0.229, 0.224, 0.225]
+  # TEST
+  NO_TRANSFORM_TEST: False
+
+TRAINER:
+  TYPE: 2
+  USE_CUDA: False
+  IS_TRAIN: False
+  NO_TEST: False
+  JaFR:
+    TRACK_LOW_FREQ_BIAS_LOSS: True
+
+JaFR:
+  VISUALIZE_ONLY: True
+  VISUALIZE_FOURIER_DATASET: True
+  VISUALIZE_JACOBIAN_MODEL: True
