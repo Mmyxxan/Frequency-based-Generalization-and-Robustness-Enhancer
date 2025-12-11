@@ -16,7 +16,7 @@ class HuggingFaceIterableDataset(IterableDataset):
             logger.debug("image is a string path")
         else:
             logger.error("image is something else:", type(item["image"]))
-            raise ValueError(f"image is something else: {type(item["image"])}")
+            raise ValueError(f"image is something else: {type(item['image'])}")
 
         for item in self.dataset:
             # Filter by platform
