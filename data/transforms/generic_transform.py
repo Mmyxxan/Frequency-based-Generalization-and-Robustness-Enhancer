@@ -8,8 +8,7 @@ import torch
 
 from models import MODEL_TO_BACKBONES
 
-import logging
-logger = logging.getLogger(__name__)
+from utils import logger
 
 AVAI_CHOICES = [
     "resize",

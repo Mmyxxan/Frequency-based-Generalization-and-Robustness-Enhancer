@@ -3,8 +3,7 @@ from .backbone import Backbone
 import torch.nn as nn
 import torch
 
-import logging
-logger = logging.getLogger(__name__)
+from utils import logger
 
 class FusedBackbone(Backbone):
 

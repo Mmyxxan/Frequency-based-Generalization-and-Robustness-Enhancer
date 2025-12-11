@@ -6,8 +6,7 @@ from .datasets.generic_dataset import *
 from .datasets.hugging_face_dataset import HuggingFaceIterableDataset
 from .transforms.generic_transform import build_transform
 
-import logging
-logger = logging.getLogger(__name__)
+from utils import logger
 
 def build_dataset(cfg, is_train, split, is_visualize=False):
     transform = build_transform(cfg=cfg, is_train=is_train, is_visualize=is_visualize)

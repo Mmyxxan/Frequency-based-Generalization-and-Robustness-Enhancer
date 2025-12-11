@@ -13,8 +13,7 @@ from utils import set_up_logger, set_random_seed, collect_env_info
 from configs import get_cfg_defaults
 from trainers import build_trainer
 
-import logging
-logger = logging.getLogger(__name__)
+from utils import logger
 
 def print_args(args, cfg):
     logger.info("***************")
@@ -102,7 +101,7 @@ def setup_cfg(args):
 def main(args):
     cfg = setup_cfg(args)
     if cfg.TRAINER.SEED >= 0:
-        logger.info("Setting fixed seed: {}".format(cfg.TRAINER.SEED))
+        print("Setting fixed seed: {}".format(cfg.TRAINER.SEED))
         set_random_seed(cfg.TRAINER.SEED)
     set_up_logger(cfg=cfg)
 

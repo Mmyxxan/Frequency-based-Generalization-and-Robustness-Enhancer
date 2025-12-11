@@ -17,10 +17,8 @@ from .optimizer import build_optimizer
 from .lr_scheduler import build_lr_scheduler
 
 from models import Baseline
-from utils import *
-
-import logging
-logger = logging.getLogger(__name__)
+from utils import * 
+from utils import logger
 
 # Trainer inherits Abstract trainer for different training flows based on cfg.TRAINER.TYPE
 
@@ -506,8 +504,11 @@ class JaFRTrainer(AbstractTrainer):
         device_count = torch.cuda.device_count()
         if device_count > 1:
             logger.info(f"Detected {device_count} GPUs (use nn.DataParallel)")
-            self.model = nn.DataParallel(self.model)
-
+            if isinstance(self.model, Baseline):
+                self.model.model = nn.DataParallel(self.model.model)
+            else:
+                self.model = nn.DataParallel(self.model)
+            
         if self.cfg.TRAINER.IS_TRAIN:
             logger.info(f"Training {self.cfg.MODEL.NAME}")
             # If train, initialize best result

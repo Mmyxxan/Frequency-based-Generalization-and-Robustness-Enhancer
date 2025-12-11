@@ -1,8 +1,7 @@
 from torch.utils.data import IterableDataset
 from PIL import Image
 
-import logging
-logger = logging.getLogger(__name__)
+from utils import logger
 
 class HuggingFaceIterableDataset(IterableDataset):
     def __init__(self, hf_dataset, transform=None, platform=None, generator=None):

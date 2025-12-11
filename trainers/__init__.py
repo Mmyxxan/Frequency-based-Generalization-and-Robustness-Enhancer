@@ -1,7 +1,6 @@
 from .trainer import *
 
-import logging
-logger = logging.getLogger(__name__)
+from utils import logger
 
 def build_trainer(cfg):
     if cfg.TRAINER.TYPE == 0:

@@ -2,7 +2,7 @@ from datetime import datetime
 from .ostools import mkdir_if_missing
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("MyLogger")
 
 def set_up_logger(cfg):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -21,6 +21,8 @@ def set_up_logger(cfg):
     # --- Remove existing handlers to avoid duplicates ---
     if logger.hasHandlers():
         logger.handlers.clear()
+
+    logger.setLevel(logging.INFO)
 
     # --- File handler ---
     file_handler = logging.FileHandler(logfile, encoding="utf-8")

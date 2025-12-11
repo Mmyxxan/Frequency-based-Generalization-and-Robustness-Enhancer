@@ -8,8 +8,7 @@ import numpy as np
 import random
 import PIL
 
-import logging
-logger = logging.getLogger(__name__)
+from utils import logger
 
 def count_num_param(model=None, params=None, trainable_only=False):
     r"""Count number of parameters in a model.

@@ -5,10 +5,7 @@ import os.path as osp
 from collections import Counter
 import torch
 
-from utils import listdir_nohidden
-
-import logging
-logger = logging.getLogger(__name__)
+from utils import listdir_nohidden, logger
 
 class MyImageDataset(Dataset):
     def __init__(self, img_dir, split, transform=None):

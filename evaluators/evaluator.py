@@ -4,8 +4,7 @@ from collections import OrderedDict, defaultdict
 import torch
 from sklearn.metrics import f1_score, confusion_matrix, average_precision_score
 
-import logging
-logger = logging.getLogger(__name__)
+from utils import logger
 
 class EvaluatorBase:
     """Base evaluator."""

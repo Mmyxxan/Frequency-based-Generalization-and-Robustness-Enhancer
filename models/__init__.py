@@ -15,10 +15,7 @@ from functools import partial
 from collections import OrderedDict
 import shutil
 
-from utils import mkdir_if_missing, load_checkpoint
-
-import logging
-logger = logging.getLogger(__name__)
+from utils import mkdir_if_missing, load_checkpoint, logger
 
 # Remember to put low frequency bias extractor first in backbone list
 MODEL_TO_BACKBONES = {
