@@ -5,6 +5,7 @@
 # visualize Fourier/Jacobians + JaFR training, truefake upload and testing
 # add more loggings and manage output directory structure for JaFR
 # review B_low numbers
+# test if jpeg compression and gaussian blur run correctly
 
 import argparse
 import torch

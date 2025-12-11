@@ -11,7 +11,7 @@ DATASET:
   NUM_CLASSES: 2
 
 DATALOADER:
-  BATCH_SIZE: 32
+  BATCH_SIZE: 128
 
 TRANSFORM:
   TRANSFORMS: ["resize", "random_flip", "gaussian_blur", "jpeg_compression", "to_tensor", "normalize"]
@@ -33,7 +33,7 @@ TRAINER:
   TYPE: 2
   USE_CUDA: True
   IS_TRAIN: True
-  NUM_EPOCHS: 2
+  NUM_EPOCHS: 10
   NO_TEST: False
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
@@ -49,7 +49,7 @@ TRAINER:
     FREQ_BIAS_TEMPERATURE: 1
     FREQ_BIAS_REDUCE_TYPE: 'sum'
     FREQ_BIAS_IGNORE_FIRST_BASIS: False
-    EPOCHS_WARMUP_BEFORE_FREQ_BIAS_REG: -1
+    EPOCHS_WARMUP_BEFORE_FREQ_BIAS_REG: 5
 
 JaFR:
   VISUALIZE_ONLY: False
