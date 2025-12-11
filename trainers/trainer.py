@@ -829,6 +829,7 @@ class JaFRTrainer(AbstractTrainer):
         output_eval_file = os.path.join(analysis_output_dir, 'eval_results.txt')
         with open(output_eval_file, 'w') as f:
             f.write(eval_results)
+        logger.info(f"Saved results to {output_eval_file}.")
 
         time_elapsed = time.time() - time_start
         time_elapsed = str(datetime.timedelta(seconds=time_elapsed))
