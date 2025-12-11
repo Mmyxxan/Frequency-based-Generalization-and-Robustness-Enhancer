@@ -3,6 +3,7 @@ from .ostools import mkdir_if_missing
 
 import logging
 logger = logging.getLogger("MyLogger")
+# logger.propagate = False
 
 def set_up_logger(cfg):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

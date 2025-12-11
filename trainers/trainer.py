@@ -72,6 +72,12 @@ class AbstractTrainer:
         else:
             logger.info("No test, no need to build test loader and evaluator!")
 
+    def get_model(self):
+        if isinstance(self.model, Baseline):
+            return self.model.model.module if isinstance(self.model.model, nn.DataParallel) else self.model.model
+        else:
+            return self.model.module if isinstance(self.model, nn.DataParallel) else self.model
+        
     def set_model_mode(self, mode="train"):
         if mode == "train":
             self.model.train()
@@ -96,7 +102,7 @@ class AbstractTrainer:
         optimizer = getattr(self, "optimizer", None)
         scheduler = getattr(self, "scheduler", None)
 
-        self.start_epoch = self.model.resume_or_load_checkpoint(
+        self.start_epoch = self.get_model().resume_or_load_checkpoint(
             self.cfg,
             optimizer,
             scheduler
@@ -158,7 +164,7 @@ class AbstractTrainer:
         if not self.cfg.TRAINER.NO_TEST:
             if self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
                 logger.info("Deploy the model with the best val performance")
-                self.model.load_best_model(f"{self.cfg.MODEL.OUTPUT_DIR}/model")
+                self.get_model().load_best_model(f"{self.cfg.MODEL.OUTPUT_DIR}/model")
             else:
                 logger.info("Deploy the last-epoch model")
             self.test()
@@ -391,7 +397,7 @@ class BaselineTester(AbstractTrainer):
         pass
 
     def before_train(self):
-        self.model.load_checkpoint(self.cfg)
+        self.get_model().load_checkpoint(self.cfg)
 
         self.time_start = time.time()
 
@@ -565,12 +571,12 @@ class JaFRTrainer(AbstractTrainer):
 
     def before_train(self):
         if isinstance(self.model, Baseline):
-            self.model.load_checkpoint(self.cfg)
+            self.get_model().load_checkpoint(self.cfg)
         else:
             optimizer = getattr(self, "optimizer", None)
             scheduler = getattr(self, "scheduler", None)
 
-            self.start_epoch = self.model.resume_or_load_checkpoint(
+            self.start_epoch = self.get_model().resume_or_load_checkpoint(
                 self.cfg,
                 optimizer,
                 scheduler
