@@ -104,6 +104,10 @@ class AbstractTrainer:
             scheduler
         )
 
+        if self.start_epoch >= self.cfg.TRAINER.NUM_EPOCHS:
+            logger.error(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
+            raise ValueError(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
+
         self.time_start = time.time()
 
     def before_epoch(self):
@@ -571,6 +575,10 @@ class JaFRTrainer(AbstractTrainer):
                 scheduler
             )
 
+            if self.start_epoch >= self.cfg.TRAINER.NUM_EPOCHS:
+                logger.error(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
+                raise ValueError(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
+
         self.time_start = time.time()
 
     # keep generic before_epoch function as abstract trainer
@@ -714,28 +722,37 @@ class JaFRTrainer(AbstractTrainer):
         else: 
             low_freq_bias_reg = torch.zeros(1)[0]
 
-        if self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA != 0.0 or self.cfg.TRAINER.JaFR.TRACK_LOW_FREQ_BIAS_LOSS:
-            if self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA == 0.0:                
-                grad_for_backprop = get_input_grad(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
+        if self.cfg.TRAINER.USE_CUDA:
+            high_freq_bias_reg = torch.zeros(1).cuda()[0]
+        else: 
+            high_freq_bias_reg = torch.zeros(1)[0]
+
+        if self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA != 0.0 or self.cfg.TRAINER.JaFR.TRACK_FREQ_BIAS_LOSS:
+            if self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA == 0.0:                
+                grads_for_backprop = get_grad_extractor(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
                                     delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=False, cuda=self.cfg.TRAINER.USE_CUDA)
-                grad_for_backprop = grad_for_backprop.detach()
+                grads_for_backprop = grads_for_backprop.detach()
             else:
-                grad_for_backprop = get_input_grad(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
+                grads_for_backprop = get_grad_extractor(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
                                     delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=True, cuda=self.cfg.TRAINER.USE_CUDA)
 
-            grad_to_reg_freq = grad_for_backprop[:]
+            grads_to_reg_freq = grads_for_backprop[:]
 
-            chmean_grad_freq_norm = compute_fourier_map(grad_to_reg_freq)
+            grad_to_low_freq_reg = grads_to_reg_freq[0]
+            grad_to_high_freq_reg = grads_to_reg_freq[1]
 
-            grad_low_freq_bias_value = compute_low_freq_bias(chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2], 
-                                            max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE, reduce_type=self.cfg.TRAINER.JaFR.FREQ_BIAS_REDUCE_TYPE, ignore_first_basis=self.cfg.TRAINER.JaFR.FREQ_BIAS_IGNORE_FIRST_BASIS, cuda=self.cfg.TRAINER.USE_CUDA)
-                
-            low_freq_bias_reg += self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA * -1 * grad_low_freq_bias_value
+            grad_low_freq_bias_value = self.compute_grad_low_freq_bias_value(grad_to_low_freq_reg)
+            grad_high_freq_bias_value = -1 * self.compute_grad_low_freq_bias_value(grad_to_high_freq_reg)
+                            
+            low_freq_bias_reg += self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA * -1 * grad_low_freq_bias_value
+            high_freq_bias_reg += self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA * -1 * grad_high_freq_bias_value
 
-            if self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA != 0.0 and self.epoch > self.cfg.TRAINER.JaFR.EPOCHS_WARMUP_BEFORE_LOW_FREQ_BIAS_REG:
+            if self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA != 0.0 and self.epoch > self.cfg.TRAINER.JaFR.EPOCHS_WARMUP_BEFORE_FREQ_BIAS_REG:
                 loss += low_freq_bias_reg
-            elif self.cfg.TRAINER.JaFR.LOW_FREQ_BIAS_LAMBDA == 0.0 and self.cfg.TRAINER.JaFR.TRACK_LOW_FREQ_BIAS_LOSS:
+                loss += high_freq_bias_reg
+            elif self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA == 0.0 and self.cfg.TRAINER.JaFR.TRACK_FREQ_BIAS_LOSS:
                 low_freq_bias_reg += -1 * grad_low_freq_bias_value
+                high_freq_bias_reg += -1 * grad_high_freq_bias_value
 
             # sample01_low_freq_norm = chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2][0,1]
             # sample10_low_freq_norm = chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2][1,0]
@@ -750,18 +767,30 @@ class JaFRTrainer(AbstractTrainer):
             # logger.info('10_low_freq_norm: {}'.format(sample10_low_freq_norm.item()))
             # logger.info('high_freq_norm: {}'.format(sample_high_freq_norm.item()))
 
-        return loss, low_freq_bias_reg
+        logger.debug('loss {}, low_freq_bias_reg {}, high_freq_bias_reg {}'.format(loss.item(), low_freq_bias_reg.item(), high_freq_bias_reg.item()))
+        # high_freq_bias_reg is -inf without warmup
+
+        return loss, low_freq_bias_reg, high_freq_bias_reg
+    
+    def compute_grad_low_freq_bias_value(self, grad_to_reg_freq):
+        chmean_grad_freq_norm = compute_fourier_map(grad_to_reg_freq)
+
+        grad_low_freq_bias_value = compute_low_freq_bias(chmean_grad_freq_norm[:1+chmean_grad_freq_norm.shape[0]//2], 
+                                        max_pow=self.cfg.TRAINER.JaFR.MAX_POW, min_pow=-1*self.cfg.TRAINER.JaFR.MAX_POW, temperature=self.cfg.TRAINER.JaFR.FREQ_BIAS_TEMPERATURE, reduce_type=self.cfg.TRAINER.JaFR.FREQ_BIAS_REDUCE_TYPE, ignore_first_basis=self.cfg.TRAINER.JaFR.FREQ_BIAS_IGNORE_FIRST_BASIS, cuda=self.cfg.TRAINER.USE_CUDA)
+
+        return grad_low_freq_bias_value
         
     def forward_backward(self, batch):
         input, label = self.parse_batch_train(batch)
         output = self.model(input)
-        loss, low_freq_bias_reg = self.compute_loss(input=input, output=output, label=label)
+        loss, low_freq_bias_reg, high_freq_bias_reg = self.compute_loss(input=input, output=output, label=label)
         self.model_backward_and_update(loss)
 
         loss_summary = {
             "loss": loss.item(),
             "acc": compute_accuracy(output, label)[0].item(),
-            "low_freq_bias_reg": low_freq_bias_reg,
+            "low_freq_bias_reg": low_freq_bias_reg.item(),
+            "high_freq_bias_reg": high_freq_bias_reg.item(),
         }
 
         if (self.batch_idx + 1) == self.num_batches:
@@ -775,14 +804,16 @@ class JaFRTrainer(AbstractTrainer):
 
         if isinstance(input, list):
             input = [x.to(self.device) for x in input]
+            # self.delta = [torch.zeros_like(x, requires_grad=True) for x in input] # not carry out adversarial training
+            # input = [x + d for x, d in zip(input, self.delta)]
         else:
             input = input.to(self.device)
+            # self.delta = torch.zeros_like(input, requires_grad=True)
+            # input = input + self.delta
 
         label = label.to(self.device)
 
-        self.delta = torch.zeros_like(input, requires_grad=True)
-
-        return input + self.delta, label
+        return input, label
 
     def visualize_fourier_dataset(self):
         time_start = time.time()

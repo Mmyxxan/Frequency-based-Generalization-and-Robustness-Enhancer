@@ -90,6 +90,41 @@ def get_input_grad(model, X, y, opt, eps, half_prec, delta_init='none', backprop
         return grad
 
 
+def get_grad_extractor(model, X, y, opt, eps, half_prec, delta_init='none', backprop=False, return_delta=False, cuda=True):
+    inputs = []
+    deltas = []
+
+    for i, x in enumerate(X):
+        if delta_init == 'none':
+            delta = torch.zeros_like(x, requires_grad=True)
+        elif delta_init == 'random_uniform':
+            delta = get_uniform_delta(x.shape, eps, requires_grad=True, cuda=cuda)
+        elif delta_init == 'random_corner':
+            delta = get_uniform_delta(x.shape, eps, requires_grad=True, cuda=cuda)
+            delta = eps * torch.sign(delta)
+        else:
+            raise ValueError('wrong delta init')
+        inputs.append(X[i] + delta)
+        deltas.append(delta)
+
+    output = model(inputs)
+    loss = F.cross_entropy(output, y)
+
+    grads = []
+    for delta in deltas:
+        grad = torch.autograd.grad(loss, delta, create_graph=True if backprop else False)[0]
+    
+        if not backprop:
+            grad, delta = grad.detach(), delta.detach()
+
+        grads.append(grad)
+            
+    if return_delta:
+        return grads, deltas
+    else:
+        return grads  
+
+
 def configure_logger(model_name, debug, log_dir='logs'):
     logging.basicConfig(format='%(message)s')  # , level=logging.DEBUG)
     logger = logging.getLogger()

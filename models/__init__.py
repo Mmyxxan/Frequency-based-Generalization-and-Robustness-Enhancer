@@ -20,16 +20,21 @@ from utils import mkdir_if_missing, load_checkpoint
 import logging
 logger = logging.getLogger(__name__)
 
+# Remember to put low frequency bias extractor first in backbone list
 MODEL_TO_BACKBONES = {
     "Fused_CNN_ResNet50_CLIP_ViT_512_Concat": [ResNet50, CLIPViT],
     "Fused_CNN_ResNet50_CLIP_ViT_FARE_512_Concat": [ResNet50, CLIPViT_FARE],
+    "Fused_CNN_ResNet50_CNN_ResNet50_512_Concat": [ResNet50, ResNet50],
 }
 
 def build_backbone(cfg):
     if cfg.MODEL.NAME in MODEL_TO_BACKBONES:
         logger.info(f"Loading {cfg.MODEL.NAME}")
-        return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Concat",
+        if "512_Concat" in cfg.MODEL.NAME:
+            return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Concat",
                              freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
+        elif "512_" in cfg.MODEL.NAME and "" in cfg.MODEL.NAME:
+            return # implement new fusion techniques
     else:
         logger.error(f"Unknown model name: {cfg.MODEL.NAME}")
         raise ValueError(f"Unknown model name: {cfg.MODEL.NAME}")

@@ -144,9 +144,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--resume",
-        type=bool,
+        type=lambda x: x.lower() == "true",
         default=True,
-        help="whether to resume from checkpoint directory (from which the training resumes)",
+        help="whether to resume from checkpoint directory",
     )
     parser.add_argument(
         "--seed",
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--no-tf-test",
-        type=bool,
+        type=lambda x: x.lower() == "true",
         default=False,
         help="apply no augmentation in test transform",
     )

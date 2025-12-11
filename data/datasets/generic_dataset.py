@@ -111,7 +111,7 @@ class CNNSpot(MyImageDataset):
                 if model_name not in ["cyclegan", "progan", "stylegan", "stylegan2"]:
                     label_names = listdir_nohidden(model_dir)
                     for label_name in label_names:
-                        label_dir = osp.join(class_dir, label_name)
+                        label_dir = osp.join(model_dir, label_name)
                         label = int(label_name.split("_")[0])
                         imnames = listdir_nohidden(label_dir)
                         for imname in imnames:

@@ -30,7 +30,7 @@ TRAINER:
   IS_TRAIN: False
   NO_TEST: False
   JaFR:
-    TRACK_LOW_FREQ_BIAS_LOSS: True
+    TRACK_FREQ_BIAS_LOSS: True
 
 JaFR:
   VISUALIZE_ONLY: True
