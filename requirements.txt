@@ -2,3 +2,4 @@
 yacs
 transformers
 datasets
+autoattack

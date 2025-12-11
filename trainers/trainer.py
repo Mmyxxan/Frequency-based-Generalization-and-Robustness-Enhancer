@@ -769,6 +769,7 @@ class JaFRTrainer(AbstractTrainer):
 
         logger.debug('loss {}, low_freq_bias_reg {}, high_freq_bias_reg {}'.format(loss.item(), low_freq_bias_reg.item(), high_freq_bias_reg.item()))
         # high_freq_bias_reg is -inf without warmup
+        # RuntimeError: derivative for aten::_scaled_dot_product_flash_attention_for_cpu_backward is not implemented
 
         return loss, low_freq_bias_reg, high_freq_bias_reg
     

@@ -9,13 +9,31 @@ def set_up_logger(cfg):
     mkdir_if_missing(f"{cfg.MODEL.OUTPUT_DIR}/log")
     logfile = f"{cfg.MODEL.OUTPUT_DIR}/log/log_{timestamp}.log"
 
-    logging.basicConfig(
-        filename=logfile,
-        encoding='utf-8',
-        # level=logging.DEBUG,
-        level=logging.INFO,
-        # format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        format="%(message)s"
-    )
+    # logging.basicConfig(
+    #     filename=logfile,
+    #     encoding='utf-8',
+    #     # level=logging.DEBUG,
+    #     level=logging.INFO,
+    #     # format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    #     format="%(message)s"
+    # )
 
-logger.debug('Logger is set up successfully!')
+    # --- Remove existing handlers to avoid duplicates ---
+    if logger.hasHandlers():
+        logger.handlers.clear()
+
+    # --- File handler ---
+    file_handler = logging.FileHandler(logfile, encoding="utf-8")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    # --- Console handler ---
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter("%(message)s"))
+
+    # --- Add handlers ---
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    logger.info("Logger set up successfully!")
