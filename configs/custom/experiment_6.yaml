@@ -31,7 +31,7 @@ TRANSFORM:
 
 TRAINER:
   TYPE: 2
-  USE_CUDA: False
+  USE_CUDA: True
   IS_TRAIN: True
   NUM_EPOCHS: 2
   NO_TEST: False
