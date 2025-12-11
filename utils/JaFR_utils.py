@@ -107,6 +107,8 @@ def get_grad_extractor(model, X, y, opt, eps, half_prec, delta_init='none', back
         inputs.append(X[i] + delta)
         deltas.append(delta)
 
+    inputs = [inp.detach() for inp in inputs]
+
     output = model(inputs)
     loss = F.cross_entropy(output, y)
 
