@@ -30,8 +30,15 @@ def build_backbone(cfg):
         if "512_Concat" in cfg.MODEL.NAME:
             return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Concat",
                              freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
-        elif "512_" in cfg.MODEL.NAME and "" in cfg.MODEL.NAME:
-            return # implement new fusion techniques
+        elif "512_Gated_fusion" in cfg.MODEL.NAME:
+            return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Gated_fusion",
+                             freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
+        elif "512_Gated_concat" in cfg.MODEL.NAME:
+            return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Gated_concat",
+                             freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
+        elif "512_Self_attention" in cfg.MODEL.NAME:
+            return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Self_attention",
+                             freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
     else:
         logger.error(f"Unknown model name: {cfg.MODEL.NAME}")
         raise ValueError(f"Unknown model name: {cfg.MODEL.NAME}")
