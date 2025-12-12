@@ -519,7 +519,7 @@ class JaFRTrainer(AbstractTrainer):
         if self.cfg.TRAINER.IS_TRAIN:
             logger.info(f"Training {self.cfg.MODEL.NAME}")
             # If train, initialize best result
-            self.best_result = np.inf # best
+            self.best_result = -np.inf # best
             # If train, set up number of epochs by default
             self.start_epoch = 0
             self.last_epoch = self.cfg.TRAINER.NUM_EPOCHS
