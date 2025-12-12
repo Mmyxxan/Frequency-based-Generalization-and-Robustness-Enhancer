@@ -51,51 +51,72 @@ class FusedBackbone(Backbone):
             self.backbones.append(model)
             self.projections.append(projection)
 
-        if self.fuse_technique in ["Concat", "Gated_concat"]:
-            self._out_features = project_dim * len(self.backbone_list)
-        elif self.fuse_technique == "Gated_fusion":
-            self.gate_linear = nn.Linear(len(self.backbone_list) * project_dim, project_dim)
-            self._out_features = project_dim
+        num_backbones = len(self.backbone_list)
+
+        if self.fuse_technique == "Concat":
+            self._out_features = project_dim * num_backbones
+
+        elif self.fuse_technique in ["Gated_fusion", "Gated_concat"]:
+            # Support only exactly 2 backbones for gated fusion/concat
+            if num_backbones != 2:
+                logger.error(f"{self.fuse_technique} requires exactly 2 backbones, but got {num_backbones}")
+                raise ValueError(f"{self.fuse_technique} requires exactly 2 backbones, but got {num_backbones}")
+            # Linear layer projects concatenated features (2*D) to D
+            self.gate_linear = nn.Linear(2 * project_dim, project_dim)
+
+            if self.fuse_technique == "Gated_fusion":
+                self._out_features = project_dim
+            else:  # Gated_concat
+                self._out_features = 2 * project_dim
+
         elif self.fuse_technique == "Self_attention":
             self.self_attention = SelfAttention(embed_dim=project_dim)
             self._out_features = project_dim
+
+        else:
+            logger.error(f"Unknown fuse technique: {self.fuse_technique}")
+            raise ValueError(f"Unknown fuse technique: {self.fuse_technique}")
 
     def forward(self, inputs, return_map=False):
         assert len(inputs) == len(self.backbones)
         outputs = []
         for i, input in enumerate(inputs):
             outputs.append(self.projections[i](self.backbones[i](input)))
+
         if self.fuse_technique == "Concat":
+            # Simple concatenation along feature dimension
             return torch.cat(outputs, dim=1)
+
         elif self.fuse_technique == "Gated_fusion":
-            # concat into (B, N*D)
-            x = torch.cat(outputs, dim=1)
-            # attention-like weights
-            w = torch.softmax(self.gate_linear(x), dim=1)
-            # stack original outputs → (B, N, D)
-            O = torch.stack(outputs, dim=1)
-            # fuse → (B, D)
-            F = (w.unsqueeze(-1) * O).sum(dim=1)
+            # Exactly 2 backbones only
+            assert len(outputs) == 2
+            x = torch.cat(outputs, dim=1)  # (B, 2*D)
+            g = torch.sigmoid(self.gate_linear(x))  # (B, D), gate weights between 0 and 1
+            A, B = outputs  # each (B, D)
+            F = g * A + (1 - g) * B  # gated fusion per feature dim
             if return_map:
-                return F, w
+                return F, g
             return F
+
         elif self.fuse_technique == "Gated_concat":
-            # concat into (B, N*D) for computing weights
-            x = torch.cat(outputs, dim=1)
-            # attention-like weights
-            w = torch.softmax(self.gate_linear(x), dim=1)  # (B, N)
-            # apply weights without summing
-            weighted_outputs = [w[:, i].unsqueeze(-1) * outputs[i] for i in range(len(outputs))]
-            # concatenate along feature dim → (B, N*D)
-            F = torch.cat(weighted_outputs, dim=1)
+            # Exactly 2 backbones only
+            assert len(outputs) == 2
+            x = torch.cat(outputs, dim=1)  # (B, 2*D)
+            g = torch.sigmoid(self.gate_linear(x))  # (B, D)
+            weighted_outputs = [g * outputs[0], (1 - g) * outputs[1]]  # weighted but not summed
+            F = torch.cat(weighted_outputs, dim=1)  # (B, 2*D)
             if return_map:
-                return F, w
-            return F     
+                return F, g
+            return F
+
         elif self.fuse_technique == "Self_attention":
+            # inputs to self_attention must be (B, N, D)
+            stacked = torch.stack(outputs, dim=1)
             if return_map:
-                return self.self_attention(outputs)
+                return self.self_attention(stacked)
             else:
-                return self.self_attention(outputs)[0]
+                return self.self_attention(stacked)[0]
+
         else:
             logger.error(f"Unknown fuse technique: {self.fuse_technique}")
             raise ValueError(f"Unknown fuse technique: {self.fuse_technique}")
