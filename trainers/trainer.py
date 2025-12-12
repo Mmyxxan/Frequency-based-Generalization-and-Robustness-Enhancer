@@ -134,7 +134,7 @@ class AbstractTrainer:
             is_best = curr_result > self.best_result
             if is_best:
                 self.best_result = curr_result
-                self.model.save_checkpoint(
+                self.get_model().save_checkpoint(
                     cfg=self.cfg,
                     state={
                         "state_dict": self.model.state_dict(),
@@ -147,7 +147,7 @@ class AbstractTrainer:
                 )
 
         if meet_checkpoint_freq or last_epoch:
-            self.model.save_checkpoint(
+            self.get_model().save_checkpoint(
                 cfg=self.cfg,
                 state={
                     "state_dict": self.model.state_dict(),
@@ -398,7 +398,7 @@ class BaselineTester(AbstractTrainer):
         pass
 
     def before_train(self):
-        self.get_model().load_checkpoint(self.cfg)
+        self.model.load_checkpoint(self.cfg)
 
         self.time_start = time.time()
 
@@ -572,7 +572,7 @@ class JaFRTrainer(AbstractTrainer):
 
     def before_train(self):
         if isinstance(self.model, Baseline):
-            self.get_model().load_checkpoint(self.cfg)
+            self.model.load_checkpoint(self.cfg)
         else:
             optimizer = getattr(self, "optimizer", None)
             scheduler = getattr(self, "scheduler", None)
@@ -644,7 +644,7 @@ class JaFRTrainer(AbstractTrainer):
             is_best = curr_result > self.best_result
             if is_best:
                 self.best_result = curr_result
-                self.model.save_checkpoint(
+                self.get_model().save_checkpoint(
                     cfg=self.cfg,
                     state={
                         "state_dict": self.model.state_dict(),
@@ -657,7 +657,7 @@ class JaFRTrainer(AbstractTrainer):
                 )
 
         if meet_checkpoint_freq or last_epoch:
-            self.model.save_checkpoint(
+            self.get_model().save_checkpoint(
                 cfg=self.cfg,
                 state={
                     "state_dict": self.model.state_dict(),
