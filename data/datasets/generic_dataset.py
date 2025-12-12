@@ -63,6 +63,7 @@ class MyImageDataset(Dataset):
         counts = Counter(self.labels)
 
         logger.info(f"Dataset '{self.dataset_name}' loaded.")
+        logger.info(f"Split: {self.split}")
         logger.info(f"Total images: {total_images}")
         logger.info(f"Number of classes: {num_classes}")
         logger.info(f"Number of images per class: {dict(counts)}")
