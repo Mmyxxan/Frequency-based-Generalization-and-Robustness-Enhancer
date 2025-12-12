@@ -22,6 +22,7 @@ MODEL_TO_BACKBONES = {
     "Fused_CNN_ResNet50_CLIP_ViT_512_Concat": [ResNet50, CLIPViT],
     "Fused_CNN_ResNet50_CLIP_ViT_FARE_512_Concat": [ResNet50, CLIPViT_FARE],
     "Fused_CNN_ResNet50_CNN_ResNet50_512_Concat": [ResNet50, ResNet50],
+    "Fused_CNN_ResNet50_CNN_ResNet50_512_Gated_fusion": [ResNet50, ResNet50],
 }
 
 def build_backbone(cfg):
