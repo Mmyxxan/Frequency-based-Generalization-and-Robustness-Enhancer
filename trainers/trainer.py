@@ -1,3 +1,4 @@
+# need refactor
 import time
 import datetime
 from tqdm import tqdm
@@ -639,7 +640,7 @@ class JaFRTrainer(AbstractTrainer):
         )
 
         if do_test and self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
-            curr_result = self.test(split="val")[1] # take the test loss for representative
+            curr_result = self.test(split="val") # take accuracy, not the test loss for representative
             is_best = curr_result > self.best_result
             if is_best:
                 self.best_result = curr_result
@@ -682,21 +683,21 @@ class JaFRTrainer(AbstractTrainer):
 
         logger.info(f"Evaluate on the *{split}* set")
 
-        total_loss = 0.0
-        n_batches = 0
+        # total_loss = 0.0
+        # n_batches = 0
 
         for batch_idx, batch in enumerate(tqdm(data_loader)):
             input, label = self.parse_batch_test(batch)
             output = self.model_inference(input)
-            loss = self.compute_loss(input=input, output=output, label=label)[0]
+            # loss = self.compute_loss(input=input, output=output, label=label)[0]
 
-            total_loss += loss.item() # add scalar
-            n_batches += 1
+            # total_loss += loss.item() # add scalar
+            # n_batches += 1
 
             self.evaluator.process(output, label)
 
         # Compute average test loss
-        avg_loss = total_loss / n_batches
+        # avg_loss = total_loss / n_batches
 
         results = self.evaluator.evaluate()
 
@@ -705,7 +706,8 @@ class JaFRTrainer(AbstractTrainer):
         elapsed = str(datetime.timedelta(seconds=elapsed))
         logger.info(f"Elapsed: {elapsed}")
 
-        return list(results.values())[0], avg_loss
+        # return list(results.values())[0], avg_loss
+        return list(results.values())[0]
     
     def model_inference(self, input):
         if isinstance(self.model, Baseline):

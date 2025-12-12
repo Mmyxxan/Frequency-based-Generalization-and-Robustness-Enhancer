@@ -94,7 +94,7 @@ def get_grad_extractor(model, X, y, opt, eps, half_prec, delta_init='none', back
     inputs = []
     deltas = []
 
-    for i, x in enumerate(X):
+    for x in X:
         if delta_init == 'none':
             delta = torch.zeros_like(x, requires_grad=True)
         elif delta_init == 'random_uniform':
@@ -104,7 +104,7 @@ def get_grad_extractor(model, X, y, opt, eps, half_prec, delta_init='none', back
             delta = eps * torch.sign(delta)
         else:
             raise ValueError('wrong delta init')
-        inputs.append(X[i] + delta)
+        inputs.append(x + delta)
         deltas.append(delta)
 
     output = model(inputs)
