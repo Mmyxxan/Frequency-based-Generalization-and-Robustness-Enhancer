@@ -97,7 +97,7 @@ class CNNSpot(MyImageDataset):
                     label_dir = osp.join(class_dir, label_name)
                     label = int(label_name.split("_")[0])
                     imnames = listdir_nohidden(label_dir)
-                    for imname in imnames[:9000]:
+                    for imname in imnames[:6000]:
                         impath = osp.join(label_dir, imname)
                         self.img_files.append(impath)
                         self.labels.append(label)
