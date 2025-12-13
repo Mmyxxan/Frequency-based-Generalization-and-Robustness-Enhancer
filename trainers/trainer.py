@@ -757,8 +757,18 @@ class JaFRTrainer(AbstractTrainer):
             high_freq_bias_reg += self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA * -1 * grad_high_freq_bias_value
 
             if self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA != 0.0 and self.epoch > self.cfg.TRAINER.JaFR.EPOCHS_WARMUP_BEFORE_FREQ_BIAS_REG:
-                loss += low_freq_bias_reg
-                loss += high_freq_bias_reg
+                reg = low_freq_bias_reg + high_freq_bias_reg
+
+                if torch.isfinite(reg):
+                    reg = torch.clamp(reg, -0.1)
+                    loss = loss + reg
+                else:
+                    logger.warning(
+                        f"Non-finite freq reg skipped: "
+                        f"low={low_freq_bias_reg.item()}, "
+                        f"high={high_freq_bias_reg.item()}"
+                    )
+                # design loss function to push two extractors to different frequency bias (the larger B_low_1 - B_low_2, the better)
             elif self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA == 0.0 and self.cfg.TRAINER.JaFR.TRACK_FREQ_BIAS_LOSS:
                 low_freq_bias_reg += -1 * grad_low_freq_bias_value
                 high_freq_bias_reg += -1 * grad_high_freq_bias_value
