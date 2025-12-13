@@ -129,7 +129,10 @@ class MyModel(nn.Module):
         epoch = checkpoint["epoch"]
         val_result = checkpoint["val_result"]
         
-        logger.info(f"Load {model_path} (epoch={epoch}, val_result={val_result:.1f})")
+        if val_result:
+            logger.info(f"Load {model_path} (epoch={epoch}, val_result={val_result:.1f})")
+        else:
+            logger.info(f"Load {model_path} (epoch={epoch}, val_result=None)")
 
         self.load_state_dict(state_dict)
 
@@ -179,7 +182,10 @@ class MyModel(nn.Module):
         epoch = checkpoint["epoch"]
         val_result = checkpoint["val_result"]
 
-        logger.info(f"Load {fpath} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME} (epoch={epoch}, val_result={val_result:.1f})")
+        if val_result:
+            logger.info(f"Load {fpath} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME} (epoch={epoch}, val_result={val_result:.1f})")
+        else:
+            logger.info(f"Load {fpath} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME} (epoch={epoch}, val_result=None)")
 
         self.load_state_dict(state_dict)
 

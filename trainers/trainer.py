@@ -604,6 +604,8 @@ class JaFRTrainer(AbstractTrainer):
         for self.batch_idx, batch in enumerate(self.train_loader):
             data_time.update(time.time() - end)
             loss_summary = self.forward_backward(batch)
+            if not loss_summary:
+                break
             batch_time.update(time.time() - end)
             losses.update(loss_summary)
 
@@ -747,8 +749,10 @@ class JaFRTrainer(AbstractTrainer):
 
             grads_to_reg_freq = grads_for_backprop[:]
 
-            grad_to_low_freq_reg = grads_to_reg_freq[0]
-            grad_to_high_freq_reg = grads_to_reg_freq[1]
+            # grad_to_low_freq_reg = grads_to_reg_freq[0]
+            # grad_to_high_freq_reg = grads_to_reg_freq[1]
+            grad_to_low_freq_reg = grads_to_reg_freq[0].detach()
+            grad_to_high_freq_reg = grads_to_reg_freq[1].detach()
 
             grad_low_freq_bias_value = self.compute_grad_low_freq_bias_value(grad_to_low_freq_reg)
             grad_high_freq_bias_value = -1 * self.compute_grad_low_freq_bias_value(grad_to_high_freq_reg)
@@ -759,8 +763,8 @@ class JaFRTrainer(AbstractTrainer):
             if self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA != 0.0 and self.epoch > self.cfg.TRAINER.JaFR.EPOCHS_WARMUP_BEFORE_FREQ_BIAS_REG:
                 reg = low_freq_bias_reg + high_freq_bias_reg
 
-                if torch.isfinite(reg):
-                    reg = torch.clamp(reg, -0.1)
+                if torch.isfinite(reg).all():
+                    # reg = torch.clamp(reg, min=-0.1, max=0.1)
                     loss = loss + reg
                 else:
                     logger.warning(
@@ -804,7 +808,22 @@ class JaFRTrainer(AbstractTrainer):
         input, label = self.parse_batch_train(batch)
         output = self.model(input)
         loss, low_freq_bias_reg, high_freq_bias_reg = self.compute_loss(input=input, output=output, label=label)
-        self.model_backward_and_update(loss)
+        try:
+            self.model_backward_and_update(loss)
+        except Exception:
+            logger.error("NaN or infinity during backward, saving checkpoint")
+            self.get_model().save_checkpoint(
+                cfg=self.cfg,
+                state={
+                    "state_dict": self.model.state_dict(),
+                    "epoch": self.epoch + 1,
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict(),
+                    "val_result": None
+                },
+                is_best=False,
+            )
+            return None
 
         loss_summary = {
             "loss": loss.item(),
