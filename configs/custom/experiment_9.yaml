@@ -4,7 +4,7 @@ MODEL:
   TYPE: "MyModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_512_Concat"
   MODEL_DIR: "/kaggle/input/fused-cnn-resnet50-cnn-resnet50-concat-no-bias/pytorch/default/1"
-  MODEL_NAME: "model-best.pth.tar"
+  MODEL_NAME: "model.pth.tar-1"
 
 DATASET:
   NAME: "CNNSpotTestSet"
