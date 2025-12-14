@@ -23,7 +23,7 @@ def build_dataset(cfg, is_train, split, is_visualize=False):
     if cfg.DATASET.NAME == "CNNSpot":
         return CNNSpot(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
     else:
-        return MyImageDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
+        return CNNSpotTestSet(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
 
 def build_dataloader(cfg, is_train, split, is_visualize=False):
     dataset = build_dataset(cfg=cfg, is_train=is_train, split=split, is_visualize=is_visualize)

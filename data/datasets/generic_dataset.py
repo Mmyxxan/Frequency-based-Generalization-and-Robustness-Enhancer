@@ -7,6 +7,27 @@ import torch
 
 from utils import listdir_nohidden, logger
 
+kaggle_root_dir = {
+    "CNNSpotTest": "/kaggle/input/cnnspot/cnn_spot/test",
+    "CLIPpingEval": "/kaggle/input/clipping-eval/deepfake_eval",
+}
+
+kaggle_dataset_paths = {
+    "BigGAN": osp.join(kaggle_root_dir["CNNSpotTest"], "biggan"),
+    "CRN": osp.join(kaggle_root_dir["CNNSpotTest"], "crn"),
+    "CycleGAN": osp.join(kaggle_root_dir["CNNSpotTest"], "cyclegan"),
+    "DeepFake": osp.join(kaggle_root_dir["CNNSpotTest"], "deepfake"),
+    "GauGAN": osp.join(kaggle_root_dir["CNNSpotTest"], "gaugan"),
+    "IMLE": osp.join(kaggle_root_dir["CNNSpotTest"], "imle"),
+    "ProGAN": osp.join(kaggle_root_dir["CNNSpotTest"], "progan"),
+    "SAN": osp.join(kaggle_root_dir["CNNSpotTest"], "san"),
+    "SeeingDark": osp.join(kaggle_root_dir["CNNSpotTest"], "seeingdark"),
+    "StarGAN": osp.join(kaggle_root_dir["CNNSpotTest"], "stargan"),
+    "StyleGAN": osp.join(kaggle_root_dir["CNNSpotTest"], "stylegan"),
+    "StyleGAN2": osp.join(kaggle_root_dir["CNNSpotTest"], "stylegan2"),
+    "WhichFaceIsReal": osp.join(kaggle_root_dir["CNNSpotTest"], "whichfaceisreal"),
+}
+
 class MyImageDataset(Dataset):
     def __init__(self, img_dir, split, transform=None):
         self.img_dir = img_dir
@@ -130,4 +151,37 @@ class CNNSpot(MyImageDataset):
                                 self.img_files.append(impath)
                                 self.labels.append(label)
         
+        return
+
+class CNNSpotTestSet(MyImageDataset):
+    def read_data_dir(self, split="test"):
+        self.img_files = []
+        self.labels = []
+
+        data_dir = kaggle_dataset_paths[self.dataset_name]
+        if split == "test":
+            if self.dataset_name not in ["cyclegan", "progan", "stylegan", "stylegan2"]:
+                label_names = listdir_nohidden(data_dir)
+                for label_name in label_names:
+                    label_dir = osp.join(data_dir, label_name)
+                    label = int(label_name.split("_")[0])
+                    imnames = listdir_nohidden(label_dir)
+                    for imname in imnames:
+                        impath = osp.join(label_dir, imname)
+                        self.img_files.append(impath)
+                        self.labels.append(label)
+            else:
+                class_names = listdir_nohidden(data_dir)
+                for class_name in class_names:
+                    class_dir = osp.join(data_dir, class_name)
+                    label_names = listdir_nohidden(class_dir)
+                    for label_name in label_names:
+                        label_dir = osp.join(class_dir, label_name)
+                        label = int(label_name.split("_")[0])
+                        imnames = listdir_nohidden(label_dir)
+                        for imname in imnames:
+                            impath = osp.join(label_dir, imname)
+                            self.img_files.append(impath)
+                            self.labels.append(label)
+    
         return
