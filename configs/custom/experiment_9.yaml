@@ -1,4 +1,4 @@
-# Test Fused_CNN_ResNet50_CLIP_ViT_512_Concat on ProGAN with no corruption
+# Test Fused_CNN_ResNet50_CNN_ResNet50_512_Concat on CNNSpotTestSet with and without corruptions
 # python main.py --config-file "configs/custom/experiment_9.yaml" --eval-only --data-dir --opts
 MODEL:
   TYPE: "MyModel"
