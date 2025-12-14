@@ -583,7 +583,7 @@ class JaFRTrainer(AbstractTrainer):
                 scheduler
             )
 
-            if self.start_epoch >= self.cfg.TRAINER.NUM_EPOCHS:
+            if self.cfg.TRAINER.IS_TRAIN and self.start_epoch >= self.cfg.TRAINER.NUM_EPOCHS:
                 logger.error(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
                 raise ValueError(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
 

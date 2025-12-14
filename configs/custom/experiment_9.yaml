@@ -1,0 +1,38 @@
+# Test Fused_CNN_ResNet50_CLIP_ViT_512_Concat on ProGAN with no corruption
+# python main.py --config-file "configs/custom/experiment_9.yaml" --eval-only --data-dir --opts
+MODEL:
+  TYPE: "MyModel"
+  NAME: "Fused_CNN_ResNet50_CNN_ResNet50_512_Concat"
+  MODEL_DIR: "/kaggle/input/fused-cnn-resnet50-cnn-resnet50-512-concat/pytorch/default/1"
+  MODEL_NAME: "model-best.pth.tar"
+
+DATASET:
+  NAME: "CNNSpotTestSet"
+  DATA_DIR: ""
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 128
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: True
+  INPUT_SIZE: (224, 224)
+  # GAUSSIAN BLUR
+  # GB_P: 
+  GB_K: 21
+  # GB_SIGMA: 
+  # JPEG COMPRESSION
+  # JPEG_P: 
+  # JPEG_QUALITY: 
+  # TEST
+  NO_TRANSFORM_TEST: False
+
+TRAINER:
+  TYPE: 2
+  USE_CUDA: True
+  IS_TRAIN: False
+  NO_TEST: False # val after epoch and test after train
+
+EVALUATOR:
+  COMPUTE_CONFUSION_MATRIX: False
