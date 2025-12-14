@@ -749,10 +749,10 @@ class JaFRTrainer(AbstractTrainer):
 
             grads_to_reg_freq = grads_for_backprop[:]
 
-            grad_to_low_freq_reg = grads_to_reg_freq[0]
-            grad_to_high_freq_reg = grads_to_reg_freq[1]
-            # grad_to_low_freq_reg = grads_to_reg_freq[0].detach()
-            # grad_to_high_freq_reg = grads_to_reg_freq[1].detach()
+            # grad_to_low_freq_reg = grads_to_reg_freq[0]
+            # grad_to_high_freq_reg = grads_to_reg_freq[1]
+            grad_to_low_freq_reg = grads_to_reg_freq[0].detach()
+            grad_to_high_freq_reg = grads_to_reg_freq[1].detach()
 
             grad_low_freq_bias_value = self.compute_grad_low_freq_bias_value(grad_to_low_freq_reg)
             grad_high_freq_bias_value = -1 * self.compute_grad_low_freq_bias_value(grad_to_high_freq_reg)
