@@ -371,11 +371,6 @@ class BaselineTester(AbstractTrainer):
         self.model = build_model(self.cfg)
         self.model.model.to(self.device)
         logger.info(f"Number of params: {count_num_param(self.model.model, trainable_only=False):,}")
-        # Detect devices
-        device_count = torch.cuda.device_count()
-        if device_count > 1:
-            logger.info(f"Detected {device_count} GPUs (use nn.DataParallel)")
-            self.model.model = nn.DataParallel(self.model.model)
 
         # Build test loader
         self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
@@ -399,6 +394,12 @@ class BaselineTester(AbstractTrainer):
 
     def before_train(self):
         self.model.load_checkpoint(self.cfg)
+
+        # Detect devices
+        device_count = torch.cuda.device_count()
+        if device_count > 1:
+            logger.info(f"Detected {device_count} GPUs (use nn.DataParallel)")
+            self.model.model = nn.DataParallel(self.model.model)
 
         self.time_start = time.time()
 
