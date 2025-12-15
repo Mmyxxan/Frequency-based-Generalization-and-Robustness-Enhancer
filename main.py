@@ -39,6 +39,9 @@ def reset_cfg(cfg, args):
     if args.resume:
         cfg.MODEL.RESUME = args.resume
 
+    if args.cuda:
+        cfg.TRAINER.USE_CUDA = args.cuda
+
     if args.seed:
         cfg.TRAINER.SEED = args.seed
 
@@ -150,6 +153,12 @@ if __name__ == "__main__":
         type=lambda x: x.lower() == "true",
         default=True,
         help="whether to resume from checkpoint directory",
+    )
+    parser.add_argument(
+        "--cuda",
+        type=lambda x: x.lower() == "true",
+        default=False,
+        help="whether to use cuda",
     )
     parser.add_argument(
         "--seed",
