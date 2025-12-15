@@ -9,8 +9,8 @@ MODEL:
   MODEL_NAME: "model.pth.tar-1"
 
 DATASET:
-  NAME: "ProGAN"
-  DATA_DIR: "D:/GitHub/Dassl.pytorch/dassl/data/datasets/cnn_spot/test/progan"
+  NAME: "CNNSpotTestSet"
+  DATA_DIR: ""
   NUM_CLASSES: 2
 
 DATALOADER:
