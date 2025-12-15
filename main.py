@@ -48,6 +48,9 @@ def reset_cfg(cfg, args):
     if args.trainer_type:
         cfg.TRAINER.TYPE = args.trainer_type
 
+    if args.model_dir:
+        cfg.MODEL.MODEL_DIR = args.model_dir
+
     if args.model_name:
         cfg.MODEL.MODEL_NAME = args.model_name
 
