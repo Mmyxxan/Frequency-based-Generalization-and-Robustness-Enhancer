@@ -37,7 +37,7 @@ TRAINER:
   USE_CUDA: True
   IS_TRAIN: True
   NUM_EPOCHS: 1
-  NO_TEST: False
+  NO_TEST: True
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
     NAME: "sgd"
