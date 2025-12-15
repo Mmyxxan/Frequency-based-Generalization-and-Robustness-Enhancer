@@ -1,0 +1,45 @@
+# Train CNN_ResNet50 on ProGAN with no frequency bias regularization
+# python main.py --config-file "configs/custom/experiment_10.yaml" --no-tf-test True --resume False
+MODEL:
+  TYPE: "MyModel"
+  NAME: "CNN_ResNet50"
+  RESUME: False
+  BACKBONE:
+    PRETRAINED: True
+    FREEZE: False
+
+DATASET:
+  NAME: "CNNSpot"
+  DATA_DIR: "D:/GitHub/Dassl.pytorch/dassl/data/datasets/cnn_spot"
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 128
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "random_flip", "gaussian_blur", "jpeg_compression", "to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: False
+  INTERPOLATION_MODE: "bilinear"
+  INPUT_SIZE: (224, 224)
+  INPUT_MEAN: [0.485, 0.456, 0.406]
+  INPUT_STD: [0.229, 0.224, 0.225]
+  # GAUSSIAN BLUR
+  GB_P: 0.5
+  GB_K: 21
+  GB_SIGMA: (0.1, 3.0)
+  # JPEG COMPRESSION
+  JPEG_P: 0.5
+  JPEG_QUALITY: (30, 99)
+  NO_TRANSFORM_TEST: True
+
+TRAINER:
+  TYPE: 0
+  USE_CUDA: True
+  IS_TRAIN: True
+  NUM_EPOCHS: 1
+  NO_TEST: False
+  TEST_FINAL_MODEL: "best_val"
+  OPTIM:
+    NAME: "sgd"
+    LR: 0.002
+    STEPSIZE: [20]
