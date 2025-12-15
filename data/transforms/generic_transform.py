@@ -2,7 +2,7 @@ from torchvision.transforms.functional import InterpolationMode
 from torchvision.transforms import (
     RandomApply, Resize, Compose, ToTensor, Normalize, RandomHorizontalFlip, GaussianBlur
 )
-from torchvision.transforms.v2 import JPEG
+from torchvision.transforms.v2 import JPEG, GaussianNoise
 import numpy as np
 import torch
 
@@ -17,6 +17,7 @@ AVAI_CHOICES = [
     "jpeg_compression",
     # add more corruptions here
     "to_tensor",
+    "gaussian_noise", # Gaussian Noise does not support PIL images
     "normalize",
 ]
 
@@ -93,6 +94,24 @@ def build_transform(cfg, is_train, is_visualize=False):
     if "to_tensor" in choices:
         logger.info("+ to torch tensor of range [0, 1]")
         tfm += [ToTensor()]
+
+    # Gaussian noise MUST be after ToTensor
+    if is_train or not cfg.TRANSFORM.NO_TRANSFORM_TEST:
+        if "to_tensor" in choices and "gaussian_noise" in choices:
+            logger.info(
+                f"+ gaussian noise (p={cfg.TRANSFORM.GN_P}, "
+                f"mean={cfg.TRANSFORM.GN_MEAN}, sigma={cfg.TRANSFORM.GN_SIGMA})"
+            )
+            tfm += [
+                RandomApply(
+                    [GaussianNoise(
+                        mean=cfg.TRANSFORM.GN_MEAN,
+                        sigma=cfg.TRANSFORM.GN_SIGMA,
+                        clip=True
+                    )],
+                    p=cfg.TRANSFORM.GN_P
+                )
+            ]
 
     if "normalize" in choices:
         if cfg.TRANSFORM.NORMALIZE_BACKBONE:
