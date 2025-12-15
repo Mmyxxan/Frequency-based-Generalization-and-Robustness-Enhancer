@@ -375,7 +375,7 @@ class BaselineTester(AbstractTrainer):
         device_count = torch.cuda.device_count()
         if device_count > 1:
             logger.info(f"Detected {device_count} GPUs (use nn.DataParallel)")
-            self.model = nn.DataParallel(self.model)
+            self.model.model = nn.DataParallel(self.model.model)
 
         # Build test loader
         self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
