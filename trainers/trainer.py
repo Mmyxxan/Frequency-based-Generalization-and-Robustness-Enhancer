@@ -739,20 +739,13 @@ class JaFRTrainer(AbstractTrainer):
             high_freq_bias_reg = torch.zeros(1)[0]
 
         if self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA != 0.0 or self.cfg.TRAINER.JaFR.TRACK_FREQ_BIAS_LOSS:
-            if self.cfg.TRAINER.JaFR.FREQ_BIAS_LAMBDA == 0.0:                
-                grads_for_backprop = get_grad_extractor(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
-                                    delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=False, cuda=self.cfg.TRAINER.USE_CUDA)
-                grads_for_backprop = grads_for_backprop.detach()
-            else:
-                grads_for_backprop = get_grad_extractor(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
-                                    delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=True, cuda=self.cfg.TRAINER.USE_CUDA)
-
+            grads_for_backprop = get_grad_extractor(model, input, label, None, self.cfg.TRAINER.JaFR.EPS, None, 
+                                delta_init=self.cfg.TRAINER.JaFR.DELTA_TYPE_FOR_GRAD_BACKPROP, backprop=False, cuda=self.cfg.TRAINER.USE_CUDA)
+                            
             grads_to_reg_freq = grads_for_backprop[:]
 
-            # grad_to_low_freq_reg = grads_to_reg_freq[0]
-            # grad_to_high_freq_reg = grads_to_reg_freq[1]
-            grad_to_low_freq_reg = grads_to_reg_freq[0].detach()
-            grad_to_high_freq_reg = grads_to_reg_freq[1].detach()
+            grad_to_low_freq_reg = grads_to_reg_freq[0]
+            grad_to_high_freq_reg = grads_to_reg_freq[1]
 
             grad_low_freq_bias_value = self.compute_grad_low_freq_bias_value(grad_to_low_freq_reg)
             grad_high_freq_bias_value = -1 * self.compute_grad_low_freq_bias_value(grad_to_high_freq_reg)
