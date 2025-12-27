@@ -17,7 +17,7 @@ DATALOADER:
   BATCH_SIZE: 32
 
 TRANSFORM:
-  TRANSFORMS: ["resize", "to_tensor", "normalize"]
+  TRANSFORMS: ["to_tensor", "normalize"]
   NORMALIZE_BACKBONE: False
   INPUT_SIZE: (224, 224)
   # NORMALIZE
