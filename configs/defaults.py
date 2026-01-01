@@ -118,6 +118,14 @@ _C.JaFR.VISUALIZE_ONLY = False
 _C.JaFR.VISUALIZE_FOURIER_DATASET = False
 _C.JaFR.VISUALIZE_JACOBIAN_MODEL = False
 
+# RoHL
+_C.RoHL = CN()
+# _C.RoHL.TRAIN_ADAPTIVE_WEIGHTS = True # include the stage of training adaptive weights in pipeline
+# _C.RoHL.TEST_MODE = "test_1" # inference mode, choose to use adaptive weights or fixed (simply averaging predictions)
+# _C.RoHL.STAGE = 0 # stage of creating RoHL model
+_C.RoHL.USE_JSD = True
+
 # EVALUATOR
 _C.EVALUATOR = CN()
+_C.EVALUATOR.TYPE = 0
 _C.EVALUATOR.COMPUTE_CONFUSION_MATRIX = False

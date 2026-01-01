@@ -51,7 +51,8 @@ def build_model_transform(cfg):
         logger.error(f"Unknown model name: {cfg.MODEL.NAME}")
         raise ValueError(f"Unknown model name: {cfg.MODEL.NAME}")
 
-def build_transform(cfg, is_train, is_visualize=False):
+def build_transform(cfg, is_train, is_visualize=False, use_jsd=False):
+    # In case JSD loss is used, a preprocess (no augmentation) transform should be returned
     if is_visualize:
         return VisualizePreprocessWrapper()
 
@@ -68,6 +69,7 @@ def build_transform(cfg, is_train, is_visualize=False):
         logger.info("Building transform val/test...")
 
     tfm = []
+    preprocess = []
 
     interp_mode = INTERPOLATION_MODES[cfg.TRANSFORM.INTERPOLATION_MODE]
     input_size = cfg.TRANSFORM.INPUT_SIZE
@@ -75,6 +77,7 @@ def build_transform(cfg, is_train, is_visualize=False):
     if "resize" in choices:
         logger.info(f"+ resize to {input_size}")
         tfm += [Resize(input_size, interpolation=interp_mode)]
+        preprocess += [Resize(input_size, interpolation=interp_mode)]
 
     if is_train or not cfg.TRANSFORM.NO_TRANSFORM_TEST:
         if "random_flip" in choices:
@@ -94,6 +97,7 @@ def build_transform(cfg, is_train, is_visualize=False):
     if "to_tensor" in choices:
         logger.info("+ to torch tensor of range [0, 1]")
         tfm += [ToTensor()]
+        preprocess += [ToTensor()]
 
     # Gaussian noise MUST be after ToTensor
     if is_train or not cfg.TRANSFORM.NO_TRANSFORM_TEST:
@@ -116,12 +120,18 @@ def build_transform(cfg, is_train, is_visualize=False):
     if "normalize" in choices:
         if cfg.TRANSFORM.NORMALIZE_BACKBONE:
             tfm += [build_model_transform(cfg)]
+            preprocess += [build_model_transform(cfg)]
         else:
             logger.info(
                 f"+ normalization (mean={cfg.TRANSFORM.INPUT_MEAN}, std={cfg.TRANSFORM.INPUT_STD})"
             )
             tfm += [Normalize(mean=cfg.TRANSFORM.INPUT_MEAN, std=cfg.TRANSFORM.INPUT_STD)]
+            preprocess += [Normalize(mean=cfg.TRANSFORM.INPUT_MEAN, std=cfg.TRANSFORM.INPUT_STD)]
 
     tfm = Compose(tfm)
-
+    preprocess = Compose(preprocess)
+    
+    if use_jsd:
+        return tfm, preprocess
+    
     return tfm

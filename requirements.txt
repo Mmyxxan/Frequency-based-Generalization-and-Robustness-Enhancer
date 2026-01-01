@@ -1,4 +1,6 @@
 # migrate from Dassl + Jacobian
+# torchmetrics
+timm
 yacs
 transformers
 datasets

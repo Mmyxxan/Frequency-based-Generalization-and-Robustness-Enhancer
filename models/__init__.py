@@ -1,4 +1,5 @@
 from .fused.fused_backbone import FusedBackbone
+from .fused.fused_backbone import AveragingModel as AM
 from .fused.clip_vit import CLIPViT
 from .fused.cnn_resnet50 import ResNet50
 from .fused.clip_vit_fare import CLIPViT_FARE
@@ -23,12 +24,16 @@ MODEL_TO_BACKBONES = {
     "Fused_CNN_ResNet50_CLIP_ViT_FARE_512_Concat": [ResNet50, CLIPViT_FARE],
     "Fused_CNN_ResNet50_CNN_ResNet50_512_Concat": [ResNet50, ResNet50],
     "Fused_CNN_ResNet50_CNN_ResNet50_512_Gated_fusion": [ResNet50, ResNet50],
+    "Fused_CNN_ResNet50_CNN_ResNet50_Averaging": [ResNet50, ResNet50],
 }
 
 def build_backbone(cfg):
     logger.info(f"Loading {cfg.MODEL.NAME}")
     if cfg.MODEL.NAME in MODEL_TO_BACKBONES:
-        if "512_Concat" in cfg.MODEL.NAME:
+        if "Averaging" in cfg.MODEL.NAME:
+            return AM(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], num_classes=cfg.DATASET.NUM_CLASSES,
+                          freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
+        elif "512_Concat" in cfg.MODEL.NAME:
             return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Concat",
                              freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
         elif "512_Gated_fusion" in cfg.MODEL.NAME:
@@ -236,10 +241,26 @@ class MyModel(nn.Module):
             shutil.copy(fpath, best_fpath)
             logger.info('Best checkpoint saved to "{}"'.format(best_fpath))
 
+class AveragingModel(MyModel):
+    # Two ResNet50, one trained for high-freq, one trained for low-freq, then average predictions
+    def __init__(self, cfg, **kwargs):
+        super().__init__()
+        self.model = build_backbone(cfg=cfg)
+
+    def set_model_mode(self, mode):
+        self.model.set_model_mode(mode)
+
+    def forward(self, x):
+        return self.model(x)
+    
+    # load_best_model, resume_or_load_checkpoint and save_checkpoint are inherited from MyModel
+
 def build_model(cfg):
     if cfg.MODEL.TYPE == "MyModel":
         logger.info(f"Loading my model...")
         return MyModel(cfg=cfg)
+    elif cfg.MODEL.TYPE == "AveragingModel":
+        return AveragingModel(cfg=cfg)
     elif cfg.MODEL.TYPE == "Baseline":
         logger.info(f"Loading baseline...")
         return Baseline(cfg=cfg)

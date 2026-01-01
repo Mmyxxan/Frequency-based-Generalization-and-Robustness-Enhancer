@@ -9,11 +9,18 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.nn import functional as F
+from timm.loss import JsdCrossEntropy
+# from torchmetrics.image import TotalVariation
+# https://lightning.ai/docs/torchmetrics/stable/image/total_variation.html
+from torchvision import transforms
+from torchvision.transforms import v2
+# https://docs.pytorch.org/vision/main/generated/torchvision.transforms.AugMix.html
+# Training details: https://arxiv.org/pdf/2103.16241
 
 from models import build_model
-from data import build_dataloader
+from data import build_dataloader, build_transform
 from utils import count_num_param, AverageMeter, MetricMeter
-from evaluators import build_evaluator, compute_accuracy
+from evaluators import build_evaluator, compute_accuracy, accuracy
 from .optimizer import build_optimizer
 from .lr_scheduler import build_lr_scheduler
 
@@ -905,3 +912,353 @@ class JaFRTrainer(AbstractTrainer):
         time_elapsed = time.time() - time_start
         time_elapsed = str(datetime.timedelta(seconds=time_elapsed))
         logger.info(f"Elapsed: {time_elapsed}")
+
+class RoHLTrainer(AbstractTrainer):
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+        # Set up device
+        if self.cfg.TRAINER.USE_CUDA:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+
+        # Build model
+        self.model = build_model(self.cfg)
+        self.model.to(self.device)
+        logger.info(f"Number of params: {count_num_param(self.model, trainable_only=False):,}")
+        logger.info(f"Number of trainable params: {count_num_param(self.model, trainable_only=True):,}")
+        
+        # Detect devices
+        device_count = torch.cuda.device_count()
+        if device_count > 1:
+            logger.info(f"Detected {device_count} GPUs (use nn.DataParallel)")
+            self.model = nn.DataParallel(self.model)
+            
+        if self.cfg.TRAINER.IS_TRAIN:
+            logger.info(f"Training {self.cfg.MODEL.NAME}")
+            # If train, build optimizer and lr_scheduler
+            self.optimizer = build_optimizer(self.model, self.cfg.TRAINER.OPTIM)
+            self.scheduler = build_lr_scheduler(self.optimizer, self.cfg.TRAINER.OPTIM)
+            # If train, build train and val loader
+            # Build two train loaders, one for high-frequency bias and one for low-frequency bias
+            # First, from original transform, make high-frequency bias transform and low-frequency bias transform
+            # Assume that original transforms include "resize", "to_tensor", "normalize" in that order
+            original_transform = build_transform(self.cfg, is_train=True)
+            high_freq_transform, low_freq_transform, mixed_transform = self.build_customized_transform(original_transform.transforms)
+            
+            # Notes:
+            # AugMix pretrained ResNet50 is available
+            # Write load pretrained AM, AMDA ResNet50 for my averaging model
+            # The low-frequency expert was obtained by finetuning the publicly available AMDA model with contrast augmentation.
+            # RoHL (AMDATV-ftGauss, AMDA-ftCont)
+
+            # Then, build dataloader
+            self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(high_freq_transform, original_transform))
+            self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(low_freq_transform, original_transform))
+            self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(mixed_transform, original_transform)) # both high and low frequency corruptions for augmentation
+            logger.info("Successfully build train loader!")
+            if not self.cfg.TRAINER.NO_TEST:
+                self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
+                logger.info("Successfully build val loader!")
+            else:
+                logger.info("No test, no need to build val loader!")
+
+        # Build test loader
+        if not self.cfg.TRAINER.NO_TEST:
+            self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
+            logger.info("Successfully build test loader!")
+        else:
+            logger.info("No test and no visualize fourier of dataset, no need to build test loader!")
+
+        # Build evaluator
+        if not self.cfg.TRAINER.NO_TEST:
+            self.evaluator = build_evaluator(self.cfg)
+            logger.info("Successfully build evaluator!")
+        else:
+            logger.info("No test, no need to build evaluator!")
+
+    def build_customized_transform(self, original_transform):
+        high_freq_transform = []
+        for i, tf in original_transform:
+            if i == 2:
+                high_freq_transform += [transforms.AugMix(), transforms.GaussianBlur(3)] # AM_{TV}-ft_{Gauss}
+            high_freq_transform.append(tf)
+            if i == 2:
+                high_freq_transform += [v2.GaussianNoise(mean=0, sigma=0.08)]
+        # We finetuned both AM and AMTV models with these HF augmentation operations. 
+        high_freq_transform = transforms.Compose(high_freq_transform)
+
+        low_freq_transform = []
+        for i, tf in original_transform:
+            if i == 2:
+                low_freq_transform += [transforms.AugMix(), transforms.ColorJitter(contrast=0.3)] # AM-ft_{Cont}
+            low_freq_transform.append(tf)
+        low_freq_transform = transforms.Compose(low_freq_transform)
+
+        # Build actual mixed transform
+        transform = []
+        for i, tf in original_transform:
+            if i == 2:
+                gb_k, gb_p, gb_sigma = self.cfg.TRANSFORM.GB_K, self.cfg.TRANSFORM.GB_P, self.cfg.TRANSFORM.GB_SIGMA
+                transform += [transforms.RandomApply([transforms.GaussianBlur(gb_k, gb_sigma)], p=gb_p)]
+
+                jpeg_p, jpeg_quality = self.cfg.TRANSFORM.JPEG_P, self.cfg.TRANSFORM.JPEG_QUALITY
+                transform += [transforms.RandomApply([v2.JPEG(quality=jpeg_quality)], p=jpeg_p)]
+            transform.append(tf)
+        transform = transforms.Compose(transform)
+        # Log transform out for info
+        return high_freq_transform, low_freq_transform, transform
+        
+    def set_model_mode(self, mode):
+        # There should be more model modes than train, val, test
+        # In this trainer, model can be trained for high freq, low freq, adaptive average weights
+        assert mode in ["train_0", "train_1", "train_adaptive", "test_0", "test_1", "test_adaptive"]
+
+        self.model.set_model_mode(mode)
+        
+        if "train_" in mode:
+            self.model.model.train()
+        else:
+            self.model.model.eval()
+        
+    def train(self):
+        # Train AM first
+        self.set_model_mode(mode="train_0")
+        self.before_train()
+        for self.epoch in range(self.start_epoch, self.last_epoch):
+            self.before_epoch()
+            self.run_epoch("train_0")
+            self.after_epoch("test_0") # only one branch of model
+        self.after_train("test_0")
+
+        self.set_model_mode(mode="train_1")
+        self.before_train()
+        for self.epoch in range(self.start_epoch, self.last_epoch):
+            self.before_epoch()
+            self.run_epoch("train_1")
+            self.after_epoch("test_1") # two branches, fixed average
+        self.after_train("test_1")
+
+        self.set_model_mode(mode="train_adaptive")
+        self.before_train()
+        for self.epoch in range(self.start_epoch, self.last_epoch):
+            self.before_epoch()
+            self.run_epoch("train_adaptive")
+            self.after_epoch("test_adaptive") # two branches, adaptive average
+        self.after_train("test_adaptive")
+
+    def before_train(self):
+        optimizer = getattr(self, "optimizer", None)
+        scheduler = getattr(self, "scheduler", None)
+
+        # If train, initialize best result
+        self.best_result = -np.inf # best
+        # If train, set up number of epochs by default
+        self.last_epoch = self.cfg.TRAINER.NUM_EPOCHS
+        self.start_epoch = self.model.module.resume_or_load_checkpoint(
+            self.cfg,
+            optimizer,
+            scheduler
+        )
+
+        if self.cfg.TRAINER.IS_TRAIN and self.start_epoch >= self.cfg.TRAINER.NUM_EPOCHS:
+            logger.error(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
+            raise ValueError(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
+
+        self.time_start = time.time()
+
+    # keep generic before_epoch function as abstract trainer
+
+    def run_epoch(self, mode):
+        self.set_model_mode(mode)
+        if mode == "train_0":
+            train_loader = self.train_low_freq_loader
+        elif mode == "train_1":
+            train_loader = self.train_high_freq_loader
+        elif mode == "train_adaptive":
+            train_loader = self.train_loader
+
+        losses = MetricMeter()
+        batch_time = AverageMeter()
+        data_time = AverageMeter()
+        self.num_batches = len(train_loader)
+
+        end = time.time()
+
+        for self.batch_idx, batch in enumerate(train_loader):
+            data_time.update(time.time() - end)
+            loss_summary = self.forward_backward(batch)
+            batch_time.update(time.time() - end)
+            losses.update(loss_summary)
+
+            meet_freq = (self.batch_idx + 1) % self.cfg.TRAINER.PRINT_FREQ == 0
+            only_few_batches = self.num_batches < self.cfg.TRAINER.PRINT_FREQ
+
+            if meet_freq or only_few_batches:
+                nb_remain = 0
+                nb_remain += self.num_batches - self.batch_idx - 1
+                nb_remain += (
+                    self.last_epoch - self.epoch - 1
+                ) * self.num_batches
+                eta_seconds = batch_time.avg * nb_remain
+                eta = str(datetime.timedelta(seconds=int(eta_seconds)))
+
+                info = []
+                info += [f"epoch [{self.epoch + 1}/{self.last_epoch}]"]
+                info += [f"batch [{self.batch_idx + 1}/{self.num_batches}]"]
+                info += [f"time {batch_time.val:.3f} ({batch_time.avg:.3f})"]
+                info += [f"data {data_time.val:.3f} ({data_time.avg:.3f})"]
+                info += [f"{losses}"]
+                info += [f"lr {self.get_current_lr():.4e}"]
+                info += [f"eta {eta}"]
+                logger.info(" ".join(info))
+
+            end = time.time()
+            
+    def after_epoch(self, mode):
+        last_epoch = (self.epoch + 1) == self.last_epoch
+        do_test = not self.cfg.TRAINER.NO_TEST
+        meet_checkpoint_freq = (
+            (self.epoch + 1) % self.cfg.TRAINER.CHECKPOINT_FREQ == 0
+            if self.cfg.TRAINER.CHECKPOINT_FREQ > 0 else False
+        )
+
+        if do_test and self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
+            curr_result = self.test(split="val", mode=mode)
+            is_best = curr_result > self.best_result
+            if is_best:
+                self.best_result = curr_result
+                self.get_model().save_checkpoint(
+                    cfg=self.cfg,
+                    state={
+                        "state_dict": self.model.state_dict(),
+                        "epoch": self.epoch + 1,
+                        "optimizer": self.optimizer.state_dict(),
+                        "scheduler": self.scheduler.state_dict(),
+                        "val_result": self.best_result
+                    },
+                    is_best=True,
+                )
+
+        if meet_checkpoint_freq or last_epoch:
+            self.get_model().save_checkpoint(
+                cfg=self.cfg,
+                state={
+                    "state_dict": self.model.state_dict(),
+                    "epoch": self.epoch + 1,
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict(),
+                    "val_result": None
+                },
+                is_best=False,
+            )
+
+    def after_train(self, mode):
+        logger.info("Finish training!")
+
+        if not self.cfg.TRAINER.NO_TEST:
+            if self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
+                logger.info("Deploy the model with the best val performance")
+                self.get_model().load_best_model(f"{self.cfg.MODEL.OUTPUT_DIR}/model")
+            else:
+                logger.info("Deploy the last-epoch model")
+            self.test(mode=mode)
+
+        # Show elapsed time
+        elapsed = round(time.time() - self.time_start)
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+        logger.info(f"Elapsed: {elapsed}")
+    
+    @torch.no_grad()
+    def test(self, mode, split="test"):
+        """A generic testing pipeline."""
+        self.set_model_mode(mode)
+        self.evaluator.reset()
+
+        if split == "test":
+            data_loader = self.test_loader
+        elif split == "val":
+            data_loader = self.val_loader
+
+        logger.info(f"Evaluate on the *{split}* set")
+
+        for batch_idx, batch in enumerate(tqdm(data_loader)):
+            input, label = self.parse_batch_test(batch)
+            output = self.model_inference(input)
+            self.evaluator.process(output, label)
+
+        results = self.evaluator.evaluate()
+
+        # Show elapsed time
+        elapsed = round(time.time() - self.time_start)
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+        logger.info(f"Elapsed: {elapsed}")
+
+        return list(results.values())[0]
+
+    # keep generic parse_batch_test, get_current_lr, update_lr, model_zero_grad, detect_anomaly, model_backward, model_update, model_backward_and_update, inspect_weights functions as abstract trainer
+    
+    # keep order of functions inside trainer class
+    def forward_backward(self, batch):
+        input, label = self.parse_batch_train(batch)
+        if self.cfg.RoHL.USE_JSD:
+            # Compute JSD loss https://github.com/google-research/augmix/blob/master/imagenet.py#L240
+            # We employ AugMix data augmentation together with the JSD consistency loss and the default hyperparameters [18].
+            images = input
+            images_all = torch.cat(images, 0)
+            targets = label
+            logits_all = self.model(images_all)
+            logits_clean, logits_aug1, logits_aug2 = torch.split(logits_all, images[0].size(0))
+            # Cross-entropy is only computed on clean images
+            loss = F.cross_entropy(logits_clean, targets)
+
+            p_clean, p_aug1, p_aug2 = F.softmax(
+                logits_clean, dim=1), F.softmax(
+                    logits_aug1, dim=1), F.softmax(
+                        logits_aug2, dim=1)
+
+            # Clamp mixture distribution to avoid exploding KL divergence
+            p_mixture = torch.clamp((p_clean + p_aug1 + p_aug2) / 3., 1e-7, 1).log()
+            loss += 12 * (F.kl_div(p_mixture, p_clean, reduction='batchmean') +
+                            F.kl_div(p_mixture, p_aug1, reduction='batchmean') +
+                            F.kl_div(p_mixture, p_aug2, reduction='batchmean')) / 3.
+        else:
+            output = self.model(input)
+            loss = F.cross_entropy(output, label)
+
+        # Should add Total Variation minimization loss
+
+        self.model_backward_and_update(loss)
+
+        if self.cfg.RoHL.USE_JSD:
+            acc1, acc5 = accuracy(logits_clean, targets, topk=(1, 5))
+            loss_summary = {
+                "loss": loss.item(),
+                "acc": acc1,
+            }
+        else:
+            loss_summary = {
+                "loss": loss.item(),
+                "acc": compute_accuracy(output, label)[0].item(),
+            }
+
+        if (self.batch_idx + 1) == self.num_batches:
+            self.update_lr()
+
+        return loss_summary
+
+    def parse_batch_train(self, batch):
+        input = batch[0]
+        label = batch[1]
+
+        # logger.debug(input.shape)
+
+        if isinstance(input, list):
+            input = [x.to(self.device) for x in input]
+        else:
+            input = input.to(self.device)
+
+        label = label.to(self.device)
+
+        return input, label

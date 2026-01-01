@@ -8,27 +8,28 @@ from .transforms.generic_transform import build_transform
 
 from utils import logger
 
-def build_dataset(cfg, is_train, split, is_visualize=False):
-    transform = build_transform(cfg=cfg, is_train=is_train, is_visualize=is_visualize)
+def build_dataset(cfg, is_train, split, is_visualize=False, transform=None):
+    if not transform:
+        transform = build_transform(cfg=cfg, is_train=is_train, is_visualize=is_visualize, use_jsd=cfg.RoHL.USE_JSD)
 
     if cfg.DATASET.NAME == "myxxanaplt/TrueFake-647GB":
         logger.info(f"Loading dataset {cfg.DATASET.NAME} from HuggingFace...")
 
         ds = load_dataset("myxxanaplt/TrueFake-647GB", split=split, streaming=True)
         
-        return HuggingFaceIterableDataset(hf_dataset=ds, transform=transform)
+        return HuggingFaceIterableDataset(hf_dataset=ds, transform=transform) # haven't implement JSD yet, but it's ok because Truefake is not used for training
     else:
         logger.info(f"Loading dataset {cfg.DATASET.NAME} locally...")
     
     if cfg.DATASET.NAME == "CNNSpot":
-        return CNNSpot(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
+        return CNNSpot(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform, use_jsd=cfg.RoHL.USE_JSD)
     elif cfg.DATASET.NAME == "CNNSpotTestSet":
         return CNNSpotTestSet(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
     else:
         return MyImageDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
 
-def build_dataloader(cfg, is_train, split, is_visualize=False):
-    dataset = build_dataset(cfg=cfg, is_train=is_train, split=split, is_visualize=is_visualize)
+def build_dataloader(cfg, is_train, split, is_visualize=False, transform=None):
+    dataset = build_dataset(cfg=cfg, is_train=is_train, split=split, is_visualize=is_visualize, transform=transform)
     is_iterable = isinstance(dataset, IterableDataset)
 
     return DataLoader(

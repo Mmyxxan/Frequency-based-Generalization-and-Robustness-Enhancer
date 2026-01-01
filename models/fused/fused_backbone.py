@@ -33,7 +33,6 @@ class SelfAttention(nn.Module):
         return output, weights
 
 class FusedBackbone(Backbone):
-
     def preprocess(self, shared_tensor):
         return [backbone_cls.preprocess(shared_tensor) for backbone_cls in self.backbone_list]
 
@@ -120,3 +119,107 @@ class FusedBackbone(Backbone):
         else:
             logger.error(f"Unknown fuse technique: {self.fuse_technique}")
             raise ValueError(f"Unknown fuse technique: {self.fuse_technique}")
+
+class AveragingModel(Backbone):
+    def preprocess(self, shared_tensor):
+        return [backbone_cls.preprocess(shared_tensor) for backbone_cls in self.backbone_list]
+    
+    def __init__(self, backbone_list, num_classes, freeze=True, pretrained=True, **kwargs):
+        self.backbone_list = backbone_list
+
+        self.backbones = nn.ModuleList()
+        self.classifiers = nn.ModuleList()
+
+        total_dim = 0
+
+        for backbone_cls in self.backbone_list:
+            backbone = backbone_cls(freeze=freeze, pretrained=pretrained)
+            classifier = nn.Linear(backbone._out_features, num_classes)
+            self.backbones.append(backbone)
+            self.classifiers.append(classifier)
+
+            total_dim += backbone._out_features
+
+        num_backbones = len(self.backbone_list)
+        # Averaging params
+        self.adaptive_weight_generator = nn.Linear(total_dim, num_backbones)
+        self._out_features = 1
+
+    # Helper: freeze everything
+    def freeze_module(m):
+        for p in m.parameters():
+            p.requires_grad = False
+
+    # Helper: unfreeze everything
+    def unfreeze_module(m):
+        for p in m.parameters():
+            p.requires_grad = True
+
+    def set_model_mode(self, mode):
+        self.mode = mode
+        # First freeze ALL modules
+        for backbone in self.backbones:
+            self.freeze_module(backbone)
+
+        for classifier in self.classifiers:
+            self.freeze_module(classifier)
+
+        self.freeze_module(self.adaptive_weight_generator)
+
+        # Then selectively unfreeze
+        if mode.startswith("train_"):
+            if mode == "train_adaptive":
+                # Train only weight generator
+                self.unfreeze_module(self.adaptive_weight_generator)
+            else:
+                # train_i
+                idx = int(mode.split("_")[1])
+                self.unfreeze_module(self.backbones[idx])
+                self.unfreeze_module(self.classifiers[idx])
+
+    def forward(self, inputs):
+        features = []
+        probs = []
+
+        for i, x in enumerate(inputs):
+            feat = self.backbones[i](x)                 # [B, Di]
+            logit = self.classifiers[i](feat)           # [B, C]
+            prob = torch.softmax(logit, dim=1)          # [B, C]
+            features.append(feat)
+            probs.append(prob)
+
+        concat_features = torch.cat(features, dim=1)    # [B, total_dim]
+        B = inputs[0].size(0)
+        N = len(self.backbones)
+        device = inputs[0].device
+
+        if "train_" in self.mode:
+            if self.mode == "train_adaptive":
+                weights = self.adaptive_weight_generator(concat_features)  # [B, N]
+                weights = torch.softmax(weights, dim=1)
+
+            else:
+                # train_i → one-hot weights
+                idx = int(self.mode.split("_")[1])
+                weights = torch.zeros(B, N, device=device)
+                weights[:, idx] = 1.0
+
+        else:
+            # inference
+            if self.mode == "test_0":
+                idx = int(self.mode.split("_")[1])
+                weights = torch.zeros(B, N, device=device)
+                weights[:, idx] = 1.0
+                
+            elif self.mode == "test_1":
+                weights = torch.full((B, N), 1.0 / N, device=device)
+
+            elif self.mode == "test_adaptive":
+                weights = self.adaptive_weight_generator(concat_features)
+                weights = torch.softmax(weights, dim=1)
+
+        final_prob = 0
+        for i in range(N):
+            final_prob += weights[:, i:i+1] * probs[i]
+
+        return final_prob

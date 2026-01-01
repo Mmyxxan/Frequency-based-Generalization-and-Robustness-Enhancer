@@ -105,6 +105,11 @@ class MyImageDataset(Dataset):
         return image, label
 
 class CNNSpot(MyImageDataset):
+    def __init__(self, img_dir, split, transform=None, use_jsd=False):
+        self.use_jsd = use_jsd
+        super().__init__(img_dir, split, transform)
+        self.aug, self.preprocess = self.transform
+        
     def read_data_dir(self, split="test"):
         self.img_files = []
         self.labels = []
@@ -152,6 +157,21 @@ class CNNSpot(MyImageDataset):
                                 self.labels.append(label)
         
         return
+
+    def __getitem__(self, idx):
+        img_path = self.img_files[idx]
+        image = Image.open(img_path).convert("RGB")
+        label = self.labels[idx]
+        label = torch.tensor(label, dtype=torch.long)
+
+        if self.use_jsd:
+            im_tuple = (self.preprocess(image), self.aug(image), self.aug(image))
+            return im_tuple, label
+        
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
 
 class CNNSpotTestSet(MyImageDataset):
     def read_data_dir(self, split="test"):

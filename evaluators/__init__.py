@@ -1,4 +1,23 @@
-from .evaluator import Classification
+import torch
+
+from .evaluator import Classification, Classification_Output_Probs
+from utils import logger
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k."""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
 
 def compute_accuracy(output, target, topk=(1, )):
     """Computes the accuracy over the k top predictions for
@@ -32,4 +51,10 @@ def compute_accuracy(output, target, topk=(1, )):
     return res
 
 def build_evaluator(cfg):
-    return Classification(cfg=cfg)
+    if cfg.EVALUATOR.TYPE == 0:
+        return Classification(cfg=cfg)
+    elif cfg.EVALUATOR.TYPE == 1:
+        return Classification_Output_Probs(cfg=cfg)
+    else:
+        logger.error(f"Unknown evaluator type {cfg.EVALUATOR.TYPE}")
+        raise KeyError(f"Unknown evaluator type {cfg.EVALUATOR.TYPE}")
