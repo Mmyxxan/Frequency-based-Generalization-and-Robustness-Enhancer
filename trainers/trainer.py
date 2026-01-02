@@ -1029,12 +1029,12 @@ class RoHLTrainer(AbstractTrainer):
         # In this trainer, model can be trained for high freq, low freq, adaptive average weights
         assert mode in ["train_augmix", "train_0", "train_1", "train_adaptive", "test_augmix", "test_0", "test_1", "test_adaptive"]
 
-        self.model.set_model_mode(mode)
+        self.get_model().set_model_mode(mode)
         
         if "train_" in mode:
-            self.model.model.train()
+            self.model.train()
         else:
-            self.model.model.eval()
+            self.model.eval()
         
     def train(self):
         # Train AM first
@@ -1147,7 +1147,7 @@ class RoHLTrainer(AbstractTrainer):
             end = time.time()
 
     def load_duplicate_weights(self):
-        self.model.load_duplicate_weights()
+        self.get_model().load_duplicate_weights()
             
     def after_epoch(self, mode):
         last_epoch = (self.epoch + 1) == self.last_epoch
