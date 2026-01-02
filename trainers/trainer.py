@@ -1245,31 +1245,49 @@ class RoHLTrainer(AbstractTrainer):
     
     # keep order of functions inside trainer class
     def forward_backward(self, batch):
-        input, label = self.parse_batch_train(batch)
-        if self.cfg.RoHL.USE_JSD:
+        inputs, targets = self.parse_batch_train(batch)
+        if self.cfg.RoHL.USE_JSD and self.mode == "train_augmix":
             # Compute JSD loss https://github.com/google-research/augmix/blob/master/imagenet.py#L240
             # We employ AugMix data augmentation together with the JSD consistency loss and the default hyperparameters [18].
-            images = input
-            images_all = torch.cat(images, 0)
-            targets = label
-            logits_all = self.model(images_all)
-            logits_clean, logits_aug1, logits_aug2 = torch.split(logits_all, images[0].size(0))
-            # Cross-entropy is only computed on clean images
+            # inputs: [clean, aug1, aug2]
+            # each element is: List[Tensor] (one per backbone)
+            num_views = len(inputs)          # 3
+            num_backbones = len(inputs[0])   # N
+            B = inputs[0][0].size(0)
+
+            # Build backbone-wise inputs with AugMix concatenated on batch dim
+            inputs_all = []
+            for b in range(num_backbones):
+                xb = torch.cat([inputs[v][b] for v in range(num_views)], dim=0)
+                inputs_all.append(xb)
+
+            # Forward
+            logits_all = self.model(inputs_all)   # [3B, num_classes]
+
+            # Split logits
+            logits_clean, logits_aug1, logits_aug2 = torch.split(logits_all, B, dim=0)
+
+            # Cross-entropy on clean only
             loss = F.cross_entropy(logits_clean, targets)
 
-            p_clean, p_aug1, p_aug2 = F.softmax(
-                logits_clean, dim=1), F.softmax(
-                    logits_aug1, dim=1), F.softmax(
-                        logits_aug2, dim=1)
+            # JSD loss
+            p_clean = F.softmax(logits_clean, dim=1)
+            p_aug1  = F.softmax(logits_aug1, dim=1)
+            p_aug2  = F.softmax(logits_aug2, dim=1)
 
-            # Clamp mixture distribution to avoid exploding KL divergence
-            p_mixture = torch.clamp((p_clean + p_aug1 + p_aug2) / 3., 1e-7, 1).log()
-            loss += 12 * (F.kl_div(p_mixture, p_clean, reduction='batchmean') +
-                            F.kl_div(p_mixture, p_aug1, reduction='batchmean') +
-                            F.kl_div(p_mixture, p_aug2, reduction='batchmean')) / 3.
+            p_mixture = torch.clamp(
+                (p_clean + p_aug1 + p_aug2) / 3.0, 1e-7, 1.0
+            ).log()
+
+            loss += 12 * (
+                F.kl_div(p_mixture, p_clean, reduction="batchmean") +
+                F.kl_div(p_mixture, p_aug1, reduction="batchmean") +
+                F.kl_div(p_mixture, p_aug2, reduction="batchmean")
+            ) / 3.0
+
         else:
-            output = self.model(input)
-            loss = F.cross_entropy(output, label)
+            outputs = self.model(inputs)
+            loss = F.cross_entropy(outputs, targets)
 
         # Should add Total Variation minimization loss
 
@@ -1284,7 +1302,7 @@ class RoHLTrainer(AbstractTrainer):
         else:
             loss_summary = {
                 "loss": loss.item(),
-                "acc": compute_accuracy(output, label)[0].item(),
+                "acc": compute_accuracy(outputs, targets)[0].item(),
             }
 
         if (self.batch_idx + 1) == self.num_batches:
