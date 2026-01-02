@@ -164,7 +164,7 @@ class CNNSpot(MyImageDataset):
         label = self.labels[idx]
         label = torch.tensor(label, dtype=torch.long)
 
-        if self.use_jsd:
+        if self.use_jsd and self.split == "train":
             im_tuple = (self.preprocess(image), self.aug(image), self.aug(image))
             return im_tuple, label
         
