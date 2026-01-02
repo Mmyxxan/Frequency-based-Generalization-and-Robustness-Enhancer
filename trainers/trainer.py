@@ -994,7 +994,7 @@ class RoHLTrainer(AbstractTrainer):
         high_freq_transform = []
         for i, tf in original_transform:
             if i == 2:
-                high_freq_transform += [transforms.AugMix(), transforms.GaussianBlur(3)] # AM_{TV}-ft_{Gauss}
+                high_freq_transform += [transforms.GaussianBlur(3)] # AM_{TV}-ft_{Gauss}
             high_freq_transform.append(tf)
             if i == 2:
                 high_freq_transform += [v2.GaussianNoise(mean=0, sigma=0.08)]

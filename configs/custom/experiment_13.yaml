@@ -1,1 +1,44 @@
-# Write config file for training RoHL
+# Train Fused_CNN_ResNet50_CNN_ResNet50_Averaging on ProGAN following RoHL
+# python main.py --config-file "configs/custom/experiment_13.yaml" --no-tf-test True --resume False
+MODEL:
+  TYPE: "AveragingModel"
+  NAME: "Fused_CNN_ResNet50_CNN_ResNet50_Averaging"
+  RESUME: False
+  BACKBONE:
+    PRETRAINED: True
+    FREEZE: False
+    RESNET50_AM_WEIGHTS: "/kaggle/input/augmix-resnet50-imagenet/pytorch/default/1/checkpoint.pth.tar"
+
+DATASET:
+  NAME: "CNNSpot"
+  DATA_DIR: "/kaggle/input/cnnspot/cnn_spot"
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 128
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: True
+  INTERPOLATION_MODE: "bilinear"
+  INPUT_SIZE: (224, 224)
+  NO_TRANSFORM_TEST: True # NO_TRANSFORM_TEST does not matter because TRANSFORMS is basic
+
+TRAINER:
+  TYPE: 3
+  USE_CUDA: True
+  IS_TRAIN: True
+  NUM_EPOCHS: 1
+  NO_TEST: False
+  TEST_FINAL_MODEL: "best_val"
+  OPTIM:
+    NAME: "sgd"
+    LR: 0.002
+    STEPSIZE: [20]
+
+RoHL:
+  STAGE: 0
+  USE_JSD: True
+
+EVALUATOR:
+  TYPE: 1
