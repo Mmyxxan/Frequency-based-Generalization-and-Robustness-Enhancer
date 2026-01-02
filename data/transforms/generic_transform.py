@@ -119,8 +119,9 @@ def build_transform(cfg, is_train, is_visualize=False, use_jsd=False):
 
     if "normalize" in choices:
         if cfg.TRANSFORM.NORMALIZE_BACKBONE:
-            tfm += [build_model_transform(cfg)]
-            preprocess += [build_model_transform(cfg)]
+            backbone_norm = build_model_transform(cfg)
+            tfm += [backbone_norm]
+            preprocess += [backbone_norm]
         else:
             logger.info(
                 f"+ normalization (mean={cfg.TRANSFORM.INPUT_MEAN}, std={cfg.TRANSFORM.INPUT_STD})"
