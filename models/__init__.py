@@ -245,7 +245,7 @@ class MyModel(nn.Module):
 class AveragingModel(MyModel):
     # Two ResNet50, one trained for high-freq, one trained for low-freq, then average predictions
     def __init__(self, cfg, **kwargs):
-        super().__init__()
+        super().__init__(cfg=cfg)
         self.model = self.backbone
 
         # We do not use the following from superclass

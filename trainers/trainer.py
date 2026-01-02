@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch.nn import functional as F
-from timm.loss import JsdCrossEntropy
+# from timm.loss import JsdCrossEntropy
 # from torchmetrics.image import TotalVariation
 # https://lightning.ai/docs/torchmetrics/stable/image/total_variation.html
 from torchvision import transforms
