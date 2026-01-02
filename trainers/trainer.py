@@ -983,7 +983,7 @@ class RoHLTrainer(AbstractTrainer):
         logger.info("Building customized transform...")
         logger.info("AUGMIX TRANSFORM...")
         augmix_transform = []
-        for i, tf in original_transform:
+        for i, tf in enumerate(original_transform):
             if i == 2:
                 augmix_transform += [transforms.AugMix()] # AM
             augmix_transform.append(tf)
@@ -992,7 +992,7 @@ class RoHLTrainer(AbstractTrainer):
 
         logger.info("HIGH FREQUENCY TRANSFORM...")
         high_freq_transform = []
-        for i, tf in original_transform:
+        for i, tf in enumerate(original_transform):
             if i == 2:
                 high_freq_transform += [transforms.GaussianBlur(3)] # AM_{TV}-ft_{Gauss}
             high_freq_transform.append(tf)
@@ -1004,7 +1004,7 @@ class RoHLTrainer(AbstractTrainer):
 
         logger.info("LOW FREQUENCY TRANSFORM...")
         low_freq_transform = []
-        for i, tf in original_transform:
+        for i, tf in enumerate(original_transform):
             if i == 2:
                 low_freq_transform += [transforms.ColorJitter(contrast=0.4)] # AM-ft_{Cont}
             low_freq_transform.append(tf)
@@ -1013,7 +1013,7 @@ class RoHLTrainer(AbstractTrainer):
 
         # Build actual mixed transform
         # transform = []
-        # for i, tf in original_transform:
+        # for i, tf in enumerate(original_transform):
         #     if i == 2:
         #         gb_k, gb_p, gb_sigma = self.cfg.TRANSFORM.GB_K, self.cfg.TRANSFORM.GB_P, self.cfg.TRANSFORM.GB_SIGMA
         #         transform += [transforms.RandomApply([transforms.GaussianBlur(gb_k, gb_sigma)], p=gb_p)]
