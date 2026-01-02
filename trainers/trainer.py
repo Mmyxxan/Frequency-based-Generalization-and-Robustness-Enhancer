@@ -1299,8 +1299,13 @@ class RoHLTrainer(AbstractTrainer):
         # Inspect input shape
         # logger.debug(input.shape)
 
+        def move_to_device(x, device):
+            if isinstance(x, list):
+                return [move_to_device(y, device) for y in x]
+            return x.to(device)
+
         if isinstance(input, list):
-            input = [x.to(self.device) for x in input]
+            input = [move_to_device(x, self.device) for x in input]
         else:
             input = input.to(self.device)
 
