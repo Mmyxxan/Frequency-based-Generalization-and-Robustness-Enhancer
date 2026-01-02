@@ -108,7 +108,8 @@ class CNNSpot(MyImageDataset):
     def __init__(self, img_dir, split, transform=None, use_jsd=False):
         self.use_jsd = use_jsd
         super().__init__(img_dir, split, transform)
-        self.aug, self.preprocess = self.transform
+        if self.use_jsd and self.split == "train":
+            self.aug, self.preprocess = self.transform
         
     def read_data_dir(self, split="test"):
         self.img_files = []
