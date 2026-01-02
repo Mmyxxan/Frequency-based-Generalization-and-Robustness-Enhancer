@@ -15,7 +15,7 @@ DATASET:
   NUM_CLASSES: 2
 
 DATALOADER:
-  BATCH_SIZE: 128
+  BATCH_SIZE: 32
 
 TRANSFORM:
   TRANSFORMS: ["resize", "to_tensor", "normalize"]
