@@ -1295,7 +1295,7 @@ class RoHLTrainer(AbstractTrainer):
         self.model_backward_and_update(loss)
 
         if self.cfg.RoHL.USE_JSD:
-            acc1, acc5 = accuracy(logits_clean, targets, topk=(1, 5))
+            acc1 = accuracy(logits_clean, targets, topk=(1,))
             loss_summary = {
                 "loss": loss.item(),
                 "acc": acc1,
