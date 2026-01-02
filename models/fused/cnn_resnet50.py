@@ -3,6 +3,7 @@ from torchvision.models import resnet50, ResNet50_Weights
 from torchvision import transforms
 
 from .backbone import Backbone
+from utils import logger
 
 class ResNet50(Backbone):
 
@@ -20,6 +21,7 @@ class ResNet50(Backbone):
         if pretrained:
             if resnet50_am_weights:
                 # Path to AM model from Google Research
+                logger.info(f"Loading AugMix pretrained weights of ResNet50 on ImageNet from {resnet50_am_weights}...")
                 checkpoint = torch.load(resnet50_am_weights, map_location=map_location, weights_only=False)
                 # epoch = checkpoint["epoch"]
                 # model = checkpoint["model"]
