@@ -20,7 +20,7 @@ class ResNet50(Backbone):
         if pretrained:
             if resnet50_am_weights:
                 # Path to AM model from Google Research
-                checkpoint = torch.load(resnet50_am_weights, map_location=map_location)
+                checkpoint = torch.load(resnet50_am_weights, map_location=map_location, weights_only=False)
                 # epoch = checkpoint["epoch"]
                 # model = checkpoint["model"]
                 state_dict = checkpoint["state_dict"]
