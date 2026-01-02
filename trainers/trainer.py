@@ -945,7 +945,8 @@ class RoHLTrainer(AbstractTrainer):
             # First, from original transform, make high-frequency bias transform and low-frequency bias transform
             # Assume that original transforms include "resize", "to_tensor", "normalize" in that order
             original_transform = build_transform(self.cfg, is_train=True)
-            high_freq_transform, low_freq_transform, mixed_transform = self.build_customized_transform(original_transform.transforms)
+            logger.info("Successfully build original transform!")
+            high_freq_transform, low_freq_transform, augmix_transform = self.build_customized_transform(original_transform.transforms)
             
             # Notes:
             # AugMix pretrained ResNet50 is available
@@ -956,8 +957,8 @@ class RoHLTrainer(AbstractTrainer):
             # Then, build dataloader
             self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(high_freq_transform, original_transform))
             self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(low_freq_transform, original_transform))
-            self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(mixed_transform, original_transform)) # both high and low frequency corruptions for augmentation
-            logger.info("Successfully build train loader!")
+            self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform)) # both high and low frequency corruptions for augmentation
+            logger.info("Successfully build train loaders: high_freq, low_freq and augmix!")
             if not self.cfg.TRAINER.NO_TEST:
                 self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
                 logger.info("Successfully build val loader!")
@@ -979,6 +980,17 @@ class RoHLTrainer(AbstractTrainer):
             logger.info("No test, no need to build evaluator!")
 
     def build_customized_transform(self, original_transform):
+        logger.info("Building customized transform...")
+        logger.info("AUGMIX TRANSFORM...")
+        augmix_transform = []
+        for i, tf in original_transform:
+            if i == 2:
+                augmix_transform += [transforms.AugMix()] # AM
+            augmix_transform.append(tf)
+            logger.info(f"+ {augmix_transform[-1]}")
+        augmix_transform = transforms.Compose(augmix_transform)
+
+        logger.info("HIGH FREQUENCY TRANSFORM...")
         high_freq_transform = []
         for i, tf in original_transform:
             if i == 2:
@@ -986,34 +998,36 @@ class RoHLTrainer(AbstractTrainer):
             high_freq_transform.append(tf)
             if i == 2:
                 high_freq_transform += [v2.GaussianNoise(mean=0, sigma=0.08)]
+            logger.info(f"+ {high_freq_transform[-1]}")
         # We finetuned both AM and AMTV models with these HF augmentation operations. 
         high_freq_transform = transforms.Compose(high_freq_transform)
 
+        logger.info("LOW FREQUENCY TRANSFORM...")
         low_freq_transform = []
         for i, tf in original_transform:
             if i == 2:
-                low_freq_transform += [transforms.AugMix(), transforms.ColorJitter(contrast=0.3)] # AM-ft_{Cont}
+                low_freq_transform += [transforms.ColorJitter(contrast=0.4)] # AM-ft_{Cont}
             low_freq_transform.append(tf)
+            logger.info(f"+ {low_freq_transform[-1]}")
         low_freq_transform = transforms.Compose(low_freq_transform)
 
         # Build actual mixed transform
-        transform = []
-        for i, tf in original_transform:
-            if i == 2:
-                gb_k, gb_p, gb_sigma = self.cfg.TRANSFORM.GB_K, self.cfg.TRANSFORM.GB_P, self.cfg.TRANSFORM.GB_SIGMA
-                transform += [transforms.RandomApply([transforms.GaussianBlur(gb_k, gb_sigma)], p=gb_p)]
+        # transform = []
+        # for i, tf in original_transform:
+        #     if i == 2:
+        #         gb_k, gb_p, gb_sigma = self.cfg.TRANSFORM.GB_K, self.cfg.TRANSFORM.GB_P, self.cfg.TRANSFORM.GB_SIGMA
+        #         transform += [transforms.RandomApply([transforms.GaussianBlur(gb_k, gb_sigma)], p=gb_p)]
 
-                jpeg_p, jpeg_quality = self.cfg.TRANSFORM.JPEG_P, self.cfg.TRANSFORM.JPEG_QUALITY
-                transform += [transforms.RandomApply([v2.JPEG(quality=jpeg_quality)], p=jpeg_p)]
-            transform.append(tf)
-        transform = transforms.Compose(transform)
-        # Log transform out for info
-        return high_freq_transform, low_freq_transform, transform
+        #         jpeg_p, jpeg_quality = self.cfg.TRANSFORM.JPEG_P, self.cfg.TRANSFORM.JPEG_QUALITY
+        #         transform += [transforms.RandomApply([v2.JPEG(quality=jpeg_quality)], p=jpeg_p)]
+        #     transform.append(tf)
+        # transform = transforms.Compose(transform)
+        return high_freq_transform, low_freq_transform, augmix_transform
         
     def set_model_mode(self, mode):
         # There should be more model modes than train, val, test
         # In this trainer, model can be trained for high freq, low freq, adaptive average weights
-        assert mode in ["train_0", "train_1", "train_adaptive", "test_0", "test_1", "test_adaptive"]
+        assert mode in ["train_augmix", "train_0", "train_1", "train_adaptive", "test_augmix", "test_0", "test_1", "test_adaptive"]
 
         self.model.set_model_mode(mode)
         
@@ -1024,29 +1038,43 @@ class RoHLTrainer(AbstractTrainer):
         
     def train(self):
         # Train AM first
-        self.set_model_mode(mode="train_0")
-        self.before_train()
-        for self.epoch in range(self.start_epoch, self.last_epoch):
-            self.before_epoch()
-            self.run_epoch("train_0")
-            self.after_epoch("test_0") # only one branch of model
-        self.after_train("test_0")
+        if self.cfg.RoHL.STAGE == 0:
+            logger.info(f"Phase {self.cfg.RoHL.STAGE} of training RoHL model: training Augmix model!")
+            self.set_model_mode(mode="train_augmix")
+            self.before_train()
+            for self.epoch in range(self.start_epoch, self.last_epoch):
+                self.before_epoch()
+                self.run_epoch("train_augmix")
+                self.after_epoch("test_augmix") # only one branch of model
+            self.after_train("test_augmix")
 
-        self.set_model_mode(mode="train_1")
-        self.before_train()
-        for self.epoch in range(self.start_epoch, self.last_epoch):
-            self.before_epoch()
-            self.run_epoch("train_1")
-            self.after_epoch("test_1") # two branches, fixed average
-        self.after_train("test_1")
+        if self.cfg.RoHL.STAGE == 1:
+            logger.info(f"Phase {self.cfg.RoHL.STAGE} of training RoHL model: training the first ResNet50 towards low-frequency bias!")
+            self.set_model_mode(mode="train_0")
+            self.before_train()
+            for self.epoch in range(self.start_epoch, self.last_epoch):
+                self.before_epoch()
+                self.run_epoch("train_0")
+                self.after_epoch("test_0") # only one branch of model
+            self.after_train("test_0")
 
-        self.set_model_mode(mode="train_adaptive")
-        self.before_train()
-        for self.epoch in range(self.start_epoch, self.last_epoch):
-            self.before_epoch()
-            self.run_epoch("train_adaptive")
-            self.after_epoch("test_adaptive") # two branches, adaptive average
-        self.after_train("test_adaptive")
+        if self.cfg.RoHL.STAGE == 2:
+            logger.info(f"Phase {self.cfg.RoHL.STAGE} of training RoHL model: training the second ResNet50 towards high-frequency bias!")
+            self.set_model_mode(mode="train_1")
+            self.before_train()
+            for self.epoch in range(self.start_epoch, self.last_epoch):
+                self.before_epoch()
+                self.run_epoch("train_1")
+                self.after_epoch("test_1") # two branches, fixed average
+            self.after_train("test_1")
+
+        # self.set_model_mode(mode="train_adaptive")
+        # self.before_train()
+        # for self.epoch in range(self.start_epoch, self.last_epoch):
+        #     self.before_epoch()
+        #     self.run_epoch("train_adaptive")
+        #     self.after_epoch("test_adaptive") # two branches, adaptive average
+        # self.after_train("test_adaptive")
 
     def before_train(self):
         optimizer = getattr(self, "optimizer", None)
@@ -1072,7 +1100,9 @@ class RoHLTrainer(AbstractTrainer):
 
     def run_epoch(self, mode):
         self.set_model_mode(mode)
-        if mode == "train_0":
+        if mode == "train_augmix":
+            train_loader = self.train_augmix_loader
+        elif mode == "train_0":
             train_loader = self.train_low_freq_loader
         elif mode == "train_1":
             train_loader = self.train_high_freq_loader
@@ -1115,6 +1145,9 @@ class RoHLTrainer(AbstractTrainer):
                 logger.info(" ".join(info))
 
             end = time.time()
+
+    def load_duplicate_weights(self):
+        self.model.load_duplicate_weights()
             
     def after_epoch(self, mode):
         last_epoch = (self.epoch + 1) == self.last_epoch
@@ -1123,6 +1156,10 @@ class RoHLTrainer(AbstractTrainer):
             (self.epoch + 1) % self.cfg.TRAINER.CHECKPOINT_FREQ == 0
             if self.cfg.TRAINER.CHECKPOINT_FREQ > 0 else False
         )
+
+        if mode == "test_augmix":
+            logger.info("Copying AugMix weights to the other ResNet50...")
+            self.load_duplicate_weights()
 
         if do_test and self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
             curr_result = self.test(split="val", mode=mode)
@@ -1252,6 +1289,7 @@ class RoHLTrainer(AbstractTrainer):
         input = batch[0]
         label = batch[1]
 
+        # Inspect input shape
         # logger.debug(input.shape)
 
         if isinstance(input, list):

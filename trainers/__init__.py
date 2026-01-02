@@ -9,6 +9,8 @@ def build_trainer(cfg):
         return BaselineTester(cfg=cfg)
     elif cfg.TRAINER.TYPE == 2:
         return JaFRTrainer(cfg=cfg)
+    elif cfg.TRAINER.TYPE == 3:
+        return RoHLTrainer(cfg=cfg)
     else:
         logger.error(f"Unknown trainer type: {cfg.TRAINER.TYPE}")
         raise ValueError(f"Unknown trainer type: {cfg.TRAINER.TYPE}")

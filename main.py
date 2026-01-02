@@ -123,7 +123,10 @@ def main(args):
 
     if args.eval_only:
         trainer.before_train()
-        trainer.test()
+        if cfg.TRAINER.TYPE == 3:
+            trainer.test(cfg.RoHL.TEST_MODE)
+        else:
+            trainer.test()
         return
     
     if args.inspect_weights:

@@ -1,4 +1,5 @@
 from .backbone import Backbone
+from .cnn_resnet50 import ResNet50
 
 import torch.nn as nn
 import torch
@@ -133,7 +134,12 @@ class AveragingModel(Backbone):
         total_dim = 0
 
         for backbone_cls in self.backbone_list:
-            backbone = backbone_cls(freeze=freeze, pretrained=pretrained)
+            if backbone_cls == ResNet50:
+                resnet50_am_weights = kwargs.get("resnet50_am_weights", None)
+                map_location = kwargs.get("map_location", None)
+                backbone = backbone_cls(freeze=freeze, pretrained=pretrained, resnet50_am_weights=resnet50_am_weights, map_location=map_location)
+            else:
+                backbone = backbone_cls(freeze=freeze, pretrained=pretrained)
             classifier = nn.Linear(backbone._out_features, num_classes)
             self.backbones.append(backbone)
             self.classifiers.append(classifier)
@@ -171,6 +177,10 @@ class AveragingModel(Backbone):
             if mode == "train_adaptive":
                 # Train only weight generator
                 self.unfreeze_module(self.adaptive_weight_generator)
+            elif mode == "train_augmix":
+                # Train the first ResNet50 to be AM model then load the weights to the other ResNet
+                self.unfreeze_module(self.backbones[0])
+                self.unfreeze_module(self.classifiers[0])
             else:
                 # train_i
                 idx = int(mode.split("_")[1])
@@ -198,6 +208,10 @@ class AveragingModel(Backbone):
                 weights = self.adaptive_weight_generator(concat_features)  # [B, N]
                 weights = torch.softmax(weights, dim=1)
 
+            elif self.mode == "train_augmix":
+                weights = torch.zeros(B, N, device=device)
+                weights[:, 0] = 1.0
+
             else:
                 # train_i → one-hot weights
                 idx = int(self.mode.split("_")[1])
@@ -206,7 +220,11 @@ class AveragingModel(Backbone):
 
         else:
             # inference
-            if self.mode == "test_0":
+            if self.mode == "test_augmix":
+                # Load 2 ResNet50 with the same weights and average their predictions, which is the same as inferencing by just one ResNet50
+                weights = torch.full((B, N), 1.0 / N, device=device)
+
+            elif self.mode == "test_0":
                 idx = int(self.mode.split("_")[1])
                 weights = torch.zeros(B, N, device=device)
                 weights[:, idx] = 1.0
@@ -223,3 +241,5 @@ class AveragingModel(Backbone):
             final_prob += weights[:, i:i+1] * probs[i]
 
         return final_prob
+
+    

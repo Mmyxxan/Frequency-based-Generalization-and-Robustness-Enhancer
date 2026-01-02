@@ -16,6 +16,7 @@ _C.MODEL.RESUME = True # default to resume training
 _C.MODEL.BACKBONE = CN()
 _C.MODEL.BACKBONE.PRETRAINED = False
 _C.MODEL.BACKBONE.FREEZE = True
+_C.MODEL.BACKBONE.RESNET50_AM_WEIGHTS = ""
 
 # DATASET
 _C.DATASET = CN()
@@ -121,8 +122,8 @@ _C.JaFR.VISUALIZE_JACOBIAN_MODEL = False
 # RoHL
 _C.RoHL = CN()
 # _C.RoHL.TRAIN_ADAPTIVE_WEIGHTS = True # include the stage of training adaptive weights in pipeline
-# _C.RoHL.TEST_MODE = "test_1" # inference mode, choose to use adaptive weights or fixed (simply averaging predictions)
-# _C.RoHL.STAGE = 0 # stage of creating RoHL model
+_C.RoHL.TEST_MODE = "test_1" # inference mode, choose to use adaptive weights or fixed (simply averaging predictions)
+_C.RoHL.STAGE = 0 # stage of creating RoHL model
 _C.RoHL.USE_JSD = True
 
 # EVALUATOR

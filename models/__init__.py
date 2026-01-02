@@ -31,8 +31,9 @@ def build_backbone(cfg):
     logger.info(f"Loading {cfg.MODEL.NAME}")
     if cfg.MODEL.NAME in MODEL_TO_BACKBONES:
         if "Averaging" in cfg.MODEL.NAME:
+            map_location = None if cfg.TRAINER.USE_CUDA else "cpu"
             return AM(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], num_classes=cfg.DATASET.NUM_CLASSES,
-                          freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
+                          freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED, resnet50_am_weights=cfg.MODEL.BACKBONE.RESNET50_AM_WEIGHTS, map_location=map_location)
         elif "512_Concat" in cfg.MODEL.NAME:
             return FusedBackbone(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], project_dim=512, fuse_technique="Concat",
                              freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
@@ -245,10 +246,30 @@ class AveragingModel(MyModel):
     # Two ResNet50, one trained for high-freq, one trained for low-freq, then average predictions
     def __init__(self, cfg, **kwargs):
         super().__init__()
-        self.model = build_backbone(cfg=cfg)
+        self.model = self.backbone
+
+        # We do not use the following from superclass
+        # fdim = self.backbone.out_features
+        # self.classifier = nn.Linear(fdim, cfg.DATASET.NUM_CLASSES)
 
     def set_model_mode(self, mode):
         self.model.set_model_mode(mode)
+
+    def load_duplicate_weights(self):
+        """
+        Copy weights from backbone[0] → backbone[1]
+        and classifier[0] → classifier[1]
+        """
+
+        # Copy backbone weights
+        self.model.backbones[1].load_state_dict(
+            self.model.backbones[0].state_dict()
+        )
+
+        # Copy classifier weights
+        self.model.classifiers[1].load_state_dict(
+            self.model.classifiers[0].state_dict()
+        )
 
     def forward(self, x):
         return self.model(x)
@@ -260,6 +281,7 @@ def build_model(cfg):
         logger.info(f"Loading my model...")
         return MyModel(cfg=cfg)
     elif cfg.MODEL.TYPE == "AveragingModel":
+        logger.info(f"Loading averaging model...")
         return AveragingModel(cfg=cfg)
     elif cfg.MODEL.TYPE == "Baseline":
         logger.info(f"Loading baseline...")

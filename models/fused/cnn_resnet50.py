@@ -15,10 +15,28 @@ class ResNet50(Backbone):
     def preprocess(image_tensor):
         return ResNet50.normalize(image_tensor.clone())  # Clone to avoid in-place ops
 
-    def __init__(self, freeze=True, pretrained=True):
+    def __init__(self, freeze=True, pretrained=True, resnet50_am_weights=None, map_location=None):
         super().__init__()
         if pretrained:
-            self.model = resnet50(weights=ResNet50_Weights.DEFAULT)
+            if resnet50_am_weights:
+                # Path to AM model from Google Research
+                checkpoint = torch.load(resnet50_am_weights, map_location=map_location)
+                # epoch = checkpoint["epoch"]
+                # model = checkpoint["model"]
+                state_dict = checkpoint["state_dict"]
+                # best_acc1 = checkpoint["best_acc1"]
+                # optimizer = checkpoint["optimizer"]
+                # Remove 'module.' prefix if present
+                new_state_dict = {}
+                for k, v in state_dict.items():
+                    if k.startswith("module."):
+                        k = k[len("module."):]
+                    new_state_dict[k] = v
+                self.model = resnet50(weights=None)
+                self.model.load_state_dict(new_state_dict)
+            else:
+                # Default weights from PyTorch
+                self.model = resnet50(weights=ResNet50_Weights.DEFAULT)
         else:
             self.model = resnet50()
 
