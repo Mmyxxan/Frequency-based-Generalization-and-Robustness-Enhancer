@@ -153,12 +153,12 @@ class AveragingModel(Backbone):
         self._out_features = 1
 
     # Helper: freeze everything
-    def freeze_module(m):
+    def freeze_module(self, m):
         for p in m.parameters():
             p.requires_grad = False
 
     # Helper: unfreeze everything
-    def unfreeze_module(m):
+    def unfreeze_module(self, m):
         for p in m.parameters():
             p.requires_grad = True
 
