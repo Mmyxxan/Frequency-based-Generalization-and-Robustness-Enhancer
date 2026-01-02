@@ -987,7 +987,8 @@ class RoHLTrainer(AbstractTrainer):
             if i == 2:
                 augmix_transform += [transforms.AugMix()] # AM
             augmix_transform.append(tf)
-            logger.info(f"+ {augmix_transform[-1]}")
+        for tf in augmix_transform:
+            logger.info(f"+ {tf}")
         augmix_transform = transforms.Compose(augmix_transform)
 
         logger.info("HIGH FREQUENCY TRANSFORM...")
@@ -998,7 +999,8 @@ class RoHLTrainer(AbstractTrainer):
             high_freq_transform.append(tf)
             if i == 2:
                 high_freq_transform += [v2.GaussianNoise(mean=0, sigma=0.08)]
-            logger.info(f"+ {high_freq_transform[-1]}")
+        for tf in high_freq_transform:
+            logger.info(f"+ {tf}")
         # We finetuned both AM and AMTV models with these HF augmentation operations. 
         high_freq_transform = transforms.Compose(high_freq_transform)
 
@@ -1008,10 +1010,12 @@ class RoHLTrainer(AbstractTrainer):
             if i == 2:
                 low_freq_transform += [transforms.ColorJitter(contrast=0.4)] # AM-ft_{Cont}
             low_freq_transform.append(tf)
-            logger.info(f"+ {low_freq_transform[-1]}")
+        for tf in low_freq_transform:
+            logger.info(f"+ {tf}")
         low_freq_transform = transforms.Compose(low_freq_transform)
 
         # Build actual mixed transform
+        # logger.info("MIXED TRANSFORM...")
         # transform = []
         # for i, tf in enumerate(original_transform):
         #     if i == 2:
@@ -1021,7 +1025,10 @@ class RoHLTrainer(AbstractTrainer):
         #         jpeg_p, jpeg_quality = self.cfg.TRANSFORM.JPEG_P, self.cfg.TRANSFORM.JPEG_QUALITY
         #         transform += [transforms.RandomApply([v2.JPEG(quality=jpeg_quality)], p=jpeg_p)]
         #     transform.append(tf)
+        # for tf in transform:
+        #     logger.info(f"+ {tf}")
         # transform = transforms.Compose(transform)
+
         return high_freq_transform, low_freq_transform, augmix_transform
         
     def set_model_mode(self, mode):
