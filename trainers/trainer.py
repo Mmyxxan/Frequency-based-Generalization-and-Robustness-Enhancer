@@ -1035,6 +1035,7 @@ class RoHLTrainer(AbstractTrainer):
         # There should be more model modes than train, val, test
         # In this trainer, model can be trained for high freq, low freq, adaptive average weights
         assert mode in ["train_augmix", "train_0", "train_1", "train_adaptive", "test_augmix", "test_0", "test_1", "test_adaptive"]
+        self.mode = mode
 
         self.get_model().set_model_mode(mode)
         
