@@ -132,7 +132,7 @@ def build_transform(cfg, is_train, is_visualize=False, use_jsd=False):
     tfm = Compose(tfm)
     preprocess = Compose(preprocess)
     
-    if use_jsd:
+    if use_jsd and is_train:
         return tfm, preprocess
     
     return tfm
