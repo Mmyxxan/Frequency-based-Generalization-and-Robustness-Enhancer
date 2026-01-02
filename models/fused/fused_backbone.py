@@ -126,6 +126,7 @@ class AveragingModel(Backbone):
         return [backbone_cls.preprocess(shared_tensor) for backbone_cls in self.backbone_list]
     
     def __init__(self, backbone_list, num_classes, freeze=True, pretrained=True, **kwargs):
+        super().__init__()
         self.backbone_list = backbone_list
 
         self.backbones = nn.ModuleList()
