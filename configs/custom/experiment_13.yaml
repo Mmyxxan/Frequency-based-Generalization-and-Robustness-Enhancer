@@ -3,6 +3,8 @@
 MODEL:
   TYPE: "AveragingModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_Averaging"
+  MODEL_DIR: "/kaggle/input/train-augmix/pytorch/default/1"
+  MODEL_NAME: "model-best.pth.tar"
   RESUME: False
   BACKBONE:
     PRETRAINED: True
@@ -37,7 +39,7 @@ TRAINER:
     STEPSIZE: [20]
 
 RoHL:
-  STAGE: 0
+  STAGE: 1
   USE_JSD: True
 
 EVALUATOR:
