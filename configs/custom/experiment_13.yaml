@@ -7,7 +7,7 @@ MODEL:
   MODEL_NAME: "model-best.pth.tar"
   RESUME: False
   BACKBONE:
-    PRETRAINED: True
+    PRETRAINED: False
     FREEZE: False
     RESNET50_AM_WEIGHTS: "/kaggle/input/augmix-resnet50-imagenet/pytorch/default/1/checkpoint.pth.tar"
 
