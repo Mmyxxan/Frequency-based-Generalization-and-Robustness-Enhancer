@@ -955,9 +955,14 @@ class RoHLTrainer(AbstractTrainer):
             # RoHL (AMDATV-ftGauss, AMDA-ftCont)
 
             # Then, build dataloader
-            self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(high_freq_transform, original_transform))
-            self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(low_freq_transform, original_transform))
-            self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform)) # both high and low frequency corruptions for augmentation
+            if self.cfg.RoHL.USE_JSD:
+                self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(high_freq_transform, original_transform))
+                self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(low_freq_transform, original_transform))
+                self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform)) # both high and low frequency corruptions for augmentation
+            else:
+                self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=high_freq_transform)
+                self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=low_freq_transform)
+                self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=augmix_transform) # both high and low frequency corruptions for augmentation
             logger.info("Successfully build train loaders: high_freq, low_freq and augmix!")
             if not self.cfg.TRAINER.NO_TEST:
                 self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
