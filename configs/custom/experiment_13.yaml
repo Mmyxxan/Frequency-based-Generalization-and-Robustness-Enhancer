@@ -3,7 +3,7 @@
 MODEL:
   TYPE: "AveragingModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_Averaging"
-  MODEL_DIR: "/kaggle/input/train-augmix/pytorch/default/1"
+  MODEL_DIR: "/kaggle/input/train-low-freq/pytorch/default/1"
   MODEL_NAME: "model-best.pth.tar"
   RESUME: True
   BACKBONE:
@@ -30,7 +30,7 @@ TRAINER:
   TYPE: 3
   USE_CUDA: True
   IS_TRAIN: True
-  NUM_EPOCHS: 2
+  NUM_EPOCHS: 3
   NO_TEST: False
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
@@ -39,7 +39,7 @@ TRAINER:
     STEPSIZE: [20]
 
 RoHL:
-  STAGE: 1
+  STAGE: 2
   USE_JSD: False
 
 EVALUATOR:
