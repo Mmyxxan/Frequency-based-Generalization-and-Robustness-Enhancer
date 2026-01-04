@@ -1,6 +1,6 @@
 from torchvision.transforms.functional import InterpolationMode
 from torchvision.transforms import (
-    RandomApply, Resize, Compose, ToTensor, Normalize, RandomHorizontalFlip, GaussianBlur
+    RandomApply, Resize, Compose, ToTensor, Normalize, RandomHorizontalFlip, GaussianBlur, ColorJitter
 )
 from torchvision.transforms.v2 import JPEG, GaussianNoise
 import numpy as np
@@ -13,6 +13,8 @@ from utils import logger
 AVAI_CHOICES = [
     "resize",
     "random_flip",
+    "brightness",
+    "contrast",
     "gaussian_blur",
     "jpeg_compression",
     # add more corruptions here
@@ -83,6 +85,16 @@ def build_transform(cfg, is_train, is_visualize=False, use_jsd=False):
         if "random_flip" in choices:
             logger.info("+ random flip")
             tfm += [RandomHorizontalFlip()]
+
+        if "brightness" in choices:
+            logger.info(f"+ brightness (p={cfg.TRANSFORM.BRIGHTNESS_P}, brightness={cfg.TRANSFORM.BRIGHTNESS})")
+            brightness, brightness_p = cfg.TRANSFORM.BRIGHTNESS, cfg.TRANSFORM.BRIGHTNESS_P
+            tfm += [RandomApply([ColorJitter(brightness=brightness)], p=brightness_p)]
+
+        if "contrast" in choices:
+            logger.info(f"+ contrast (p={cfg.TRANSFORM.CONTRAST_P}, contrast={cfg.TRANSFORM.CONTRAST})")
+            contrast, contrast_p = cfg.TRANSFORM.CONTRAST, cfg.TRANSFORM.CONTRAST_P
+            tfm += [RandomApply([ColorJitter(contrast=contrast)], p=contrast_p)]
     
         if "gaussian_blur" in choices:
             logger.info(f"+ gaussian blur (p={cfg.TRANSFORM.GB_P}, kernel={cfg.TRANSFORM.GB_K}, sigma={cfg.TRANSFORM.GB_SIGMA})")
