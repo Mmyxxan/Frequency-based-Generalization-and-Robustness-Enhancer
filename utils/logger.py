@@ -27,10 +27,9 @@ def set_up_logger(cfg):
     logger.setLevel(logging.INFO)
 
     # --- File handler ---
-    file_handler = logging.FileHandler(logfile, mode='a', encoding="utf-8")
+    file_handler = logging.FileHandler(logfile, mode='a', encoding="utf-8") # append mode
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
-    # append mode
 
     # --- Console handler ---
     console_handler = logging.StreamHandler()
