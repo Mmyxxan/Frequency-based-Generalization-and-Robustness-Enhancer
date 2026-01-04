@@ -8,7 +8,8 @@ logger = logging.getLogger("MyLogger")
 def set_up_logger(cfg):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     mkdir_if_missing(f"{cfg.MODEL.OUTPUT_DIR}/log")
-    logfile = f"{cfg.MODEL.OUTPUT_DIR}/log/log_{timestamp}.log"
+    # logfile = f"{cfg.MODEL.OUTPUT_DIR}/log/log_{timestamp}.log"
+    logfile = f"{cfg.MODEL.OUTPUT_DIR}/log/log.txt"
 
     # logging.basicConfig(
     #     filename=logfile,
@@ -26,9 +27,10 @@ def set_up_logger(cfg):
     logger.setLevel(logging.INFO)
 
     # --- File handler ---
-    file_handler = logging.FileHandler(logfile, encoding="utf-8")
+    file_handler = logging.FileHandler(logfile, mode='a', encoding="utf-8")
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
+    # append mode
 
     # --- Console handler ---
     console_handler = logging.StreamHandler()

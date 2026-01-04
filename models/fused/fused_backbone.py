@@ -221,17 +221,14 @@ class AveragingModel(Backbone):
 
         else:
             # inference
-            if self.mode == "test_augmix":
+            if self.mode == "test_augmix" or self.mode == "test_fixed":
                 # Load 2 ResNet50 with the same weights and average their predictions, which is the same as inferencing by just one ResNet50
                 weights = torch.full((B, N), 1.0 / N, device=device)
 
-            elif self.mode == "test_0":
+            elif self.mode == "test_0" or self.mode == "test_1":
                 idx = int(self.mode.split("_")[1])
                 weights = torch.zeros(B, N, device=device)
                 weights[:, idx] = 1.0
-                
-            elif self.mode == "test_1":
-                weights = torch.full((B, N), 1.0 / N, device=device)
 
             elif self.mode == "test_adaptive":
                 weights = self.adaptive_weight_generator(concat_features)

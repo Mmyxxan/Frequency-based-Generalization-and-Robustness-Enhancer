@@ -1,0 +1,35 @@
+# Test Fused_CNN_ResNet50_CNN_ResNet50_Averaging (RoHL)
+# python main.py --config-file "configs/custom/experiment_14.yaml" --eval-only --data-dir [options]
+MODEL:
+  TYPE: "AveragingModel"
+  NAME: "Fused_CNN_ResNet50_CNN_ResNet50_Averaging"
+  MODEL_DIR: "/kaggle/input/train-low-freq/pytorch/default/1"
+  MODEL_NAME: "model-best.pth.tar"
+
+DATASET:
+  NAME: "CNNSpotTestSet"
+  DATA_DIR: ""
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 128
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: True
+  INTERPOLATION_MODE: "bilinear"
+  INPUT_SIZE: (224, 224)
+  NO_TRANSFORM_TEST: False
+
+TRAINER:
+  TYPE: 3
+  USE_CUDA: True
+  IS_TRAIN: False
+  NO_TEST: False
+
+RoHL:
+  USE_JSD: False
+  TEST_MODE: "test_0"
+
+EVALUATOR:
+  TYPE: 1

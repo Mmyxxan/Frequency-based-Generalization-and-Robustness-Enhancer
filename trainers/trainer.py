@@ -1041,7 +1041,7 @@ class RoHLTrainer(AbstractTrainer):
     def set_model_mode(self, mode):
         # There should be more model modes than train, val, test
         # In this trainer, model can be trained for high freq, low freq, adaptive average weights
-        assert mode in ["train_augmix", "train_0", "train_1", "train_adaptive", "test_augmix", "test_0", "test_1", "test_adaptive"]
+        assert mode in ["train_augmix", "train_0", "train_1", "train_adaptive", "test_augmix", "test_0", "test_1", "test_fixed", "test_adaptive"]
         self.mode = mode
 
         self.get_model().set_model_mode(mode)
@@ -1080,8 +1080,8 @@ class RoHLTrainer(AbstractTrainer):
             for self.epoch in range(self.start_epoch, self.last_epoch):
                 self.before_epoch()
                 self.run_epoch("train_1")
-                self.after_epoch("test_1") # two branches, fixed average
-            self.after_train("test_1")
+                self.after_epoch("test_fixed") # two branches, fixed average
+            self.after_train("test_fixed")
 
         # self.set_model_mode(mode="train_adaptive")
         # self.before_train()
