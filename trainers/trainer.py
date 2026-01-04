@@ -1000,7 +1000,7 @@ class RoHLTrainer(AbstractTrainer):
         high_freq_transform = []
         for i, tf in enumerate(original_transform):
             if i == 1:
-                high_freq_transform += [transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 3.0))] # AM_{TV}-ft_{Gauss}
+                # high_freq_transform += [transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 3.0))] # AM_{TV}-ft_{Gauss}
                 high_freq_transform += [v2.JPEG(quality=(30, 100))]
             high_freq_transform.append(tf)
             if i == 1:
