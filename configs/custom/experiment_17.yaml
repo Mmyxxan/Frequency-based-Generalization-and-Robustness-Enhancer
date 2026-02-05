@@ -1,5 +1,5 @@
 # Test Fused_CNN_ResNet50_CNN_ResNet50_Averaging (RoHL)
-# python main.py --config-file "configs/custom/experiment_16.yaml" --eval-only --data-dir [options]
+# python main.py --config-file "configs/custom/experiment_17.yaml" --eval-only --data-dir [options]
 MODEL:
   TYPE: "AveragingModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_Averaging"
