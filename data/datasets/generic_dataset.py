@@ -132,6 +132,9 @@ class NTIRE2026Dataset(Dataset):
         logger.info(f"Split: {self.split}")
         logger.info(f"Total images: {total_images}")
 
+    def __len__(self):
+        return len(self.img_files)
+
     def __getitem__(self, idx):
         img_path = self.img_files[idx]
         img_name = os.path.basename(img_path)
