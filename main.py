@@ -125,6 +125,8 @@ def main(args):
         trainer.before_train()
         if cfg.TRAINER.TYPE == 3:
             trainer.test(cfg.RoHL.TEST_MODE)
+        if cfg.TRAINER.TYPE == 4:
+            trainer.test_and_write_results(cfg.RoHL.TEST_MODE)
         else:
             trainer.test()
         return

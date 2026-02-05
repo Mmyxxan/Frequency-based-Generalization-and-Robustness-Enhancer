@@ -104,6 +104,44 @@ class MyImageDataset(Dataset):
 
         return image, label
 
+class NTIRE2026Dataset(Dataset):
+    def __init__(self, img_dir, split, transform=None):
+        self.img_dir = img_dir
+        self.transform = transform
+        self.split = split
+
+        self.read_data_dir(self.split)
+
+        self.log_dataset_info()
+
+    def read_data_dir(self, split="test"):        
+        self.img_files = []
+
+        if split == "test":
+            imnames = listdir_nohidden(self.img_dir)
+            for imname in imnames:
+                impath = osp.join(self.img_dir, imname)
+                self.img_files.append(impath)
+        
+        return
+
+    def log_dataset_info(self):
+        total_images = len(self.img_files)
+
+        logger.info(f"Dataset 'NTIRE2026Dataset' loaded.")
+        logger.info(f"Split: {self.split}")
+        logger.info(f"Total images: {total_images}")
+
+    def __getitem__(self, idx):
+        img_path = self.img_files[idx]
+        img_name = os.path.basename(img_path)
+        image = Image.open(img_path).convert("RGB")
+
+        if self.transform:
+            image = self.transform(image)
+
+        return img_name, image
+
 class CNNSpot(MyImageDataset):
     def __init__(self, img_dir, split, transform=None, use_jsd=False):
         self.use_jsd = use_jsd

@@ -11,6 +11,8 @@ def build_trainer(cfg):
         return JaFRTrainer(cfg=cfg)
     elif cfg.TRAINER.TYPE == 3:
         return RoHLTrainer(cfg=cfg)
+    elif cfg.TRAINER.TYPE == 4:
+        return NTIRETrainer(cfg=cfg)
     else:
         logger.error(f"Unknown trainer type: {cfg.TRAINER.TYPE}")
         raise ValueError(f"Unknown trainer type: {cfg.TRAINER.TYPE}")
