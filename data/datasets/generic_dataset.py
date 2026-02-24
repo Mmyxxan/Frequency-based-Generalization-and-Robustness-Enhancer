@@ -107,11 +107,12 @@ class MyImageDataset(Dataset):
         return image, label
 
 class NTIRE2026Dataset(Dataset):
-    def __init__(self, img_dir, split, shard_nums=None, transform=None, use_jsd=False):
+    def __init__(self, img_dir, split, shard_dirs=None, shard_nums=None, transform=None, use_jsd=False):
         self.img_dir = img_dir
         self.transform = transform
         self.split = split
         self.shard_nums = shard_nums
+        self.shard_dirs = shard_dirs
         self.use_jsd = use_jsd
 
         if self.use_jsd and self.split == "train":
@@ -131,20 +132,21 @@ class NTIRE2026Dataset(Dataset):
         
         elif split == "train":
             # Implement use_jsd
-            shard_root_dir = self.img_dir
+            if self.shard_dirs is None:
+                shard_root_dir = self.img_dir
+                
+                if self.shard_nums is None:
+                    shard_dirs = [osp.join(shard_root_dir, f'shard_{i}') for i in range(6)]
+                else:
+                    shard_dirs = [osp.join(shard_root_dir, f'shard_{i}') for i in self.shard_nums]
 
-            if self.shard_nums is None:
-                shard_dirs = [osp.join(shard_root_dir, f'shard_{i}') for i in range(6)]
-            else:
-                shard_dirs = [osp.join(shard_root_dir, f'shard_{i}') for i in self.shard_nums]
-
-            shard_dirs = [x for x in shard_dirs if osp.isdir(x)]
-            self.shard_dirs = shard_dirs
+                shard_dirs = [x for x in shard_dirs if osp.isdir(x)]
+                self.shard_dirs = shard_dirs
 
             label_dfs = []
-            for shard_dir in shard_dirs:
+            for shard_dir in self.shard_dirs:
                 df = pd.read_csv(osp.join(shard_dir, 'labels.csv'))
-                df['shard_name'] = Path(shard_dir).name
+                df['shard_path'] = shard_dir
                 label_dfs.append(df)
 
             self.label_df = pd.concat(label_dfs, ignore_index=True)
@@ -183,8 +185,7 @@ class NTIRE2026Dataset(Dataset):
         elif self.split == "train":
             row = self.label_df.iloc[idx]
             img_path = osp.join(
-                self.img_dir,
-                row['shard_name'],
+                row['shard_path'],
                 'images',
                 row['image_name']
             )
