@@ -3,7 +3,7 @@
 MODEL:
   TYPE: "AveragingModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_Averaging"
-  MODEL_DIR: "/kaggle/input/train-high-freq-cnndet/pytorch/default/1" # fill in this field in stage 1, 2, 3 or use current model trained on CNNSpot as pretrained
+  MODEL_DIR: "/kaggle/input/models/myxxanaplt/train-high-freq-cnndet/pytorch/default/1" # fill in this field in stage 1, 2, 3 or use current model trained on CNNSpot as pretrained
   MODEL_NAME: "model-best.pth.tar"
   RESUME: True
   BACKBONE:
