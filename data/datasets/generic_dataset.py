@@ -151,7 +151,7 @@ class NTIRE2026Dataset(Dataset):
 
             self.label_df = pd.concat(label_dfs, ignore_index=True)
 
-            print(f'Found {len(shard_dirs)} shards, {len(self.label_df)} images total.')
+            print(f'Found {len(self.shard_dirs)} shard(s), {len(self.label_df)} images total.')
 
         return
 
