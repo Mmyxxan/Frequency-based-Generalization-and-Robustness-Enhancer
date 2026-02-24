@@ -4,6 +4,8 @@ import os
 import os.path as osp
 from collections import Counter
 import torch
+import pandas as pd
+from pathlib import Path
 
 from utils import listdir_nohidden, logger
 
@@ -105,16 +107,20 @@ class MyImageDataset(Dataset):
         return image, label
 
 class NTIRE2026Dataset(Dataset):
-    def __init__(self, img_dir, split, transform=None):
+    def __init__(self, img_dir, split, shard_nums=None, transform=None, use_jsd=False):
         self.img_dir = img_dir
         self.transform = transform
         self.split = split
+        self.shard_nums = shard_nums
+        self.use_jsd = use_jsd
+
+        if self.use_jsd and self.split == "train":
+            self.aug, self.preprocess = self.transform
 
         self.read_data_dir(self.split)
-
         self.log_dataset_info()
 
-    def read_data_dir(self, split="test"):        
+    def read_data_dir(self, split="test"):
         self.img_files = []
 
         if split == "test":
@@ -123,27 +129,77 @@ class NTIRE2026Dataset(Dataset):
                 impath = osp.join(self.img_dir, imname)
                 self.img_files.append(impath)
         
+        elif split == "train":
+            # Implement use_jsd
+            shard_root_dir = self.img_dir
+
+            if self.shard_nums is None:
+                shard_dirs = [osp.join(shard_root_dir, f'shard_{i}') for i in range(6)]
+            else:
+                shard_dirs = [osp.join(shard_root_dir, f'shard_{i}') for i in self.shard_nums]
+
+            shard_dirs = [x for x in shard_dirs if osp.isdir(x)]
+            self.shard_dirs = shard_dirs
+
+            label_dfs = []
+            for shard_dir in shard_dirs:
+                df = pd.read_csv(osp.join(shard_dir, 'labels.csv'))
+                df['shard_name'] = Path(shard_dir).name
+                label_dfs.append(df)
+
+            self.label_df = pd.concat(label_dfs, ignore_index=True)
+
+            print(f'Found {len(shard_dirs)} shards, {len(self.label_df)} images total.')
+
         return
 
     def log_dataset_info(self):
-        total_images = len(self.img_files)
+        if self.split == "test":
+            total_images = len(self.img_files)
+        else:
+            total_images = len(self.label_df)
 
         logger.info(f"Dataset 'NTIRE2026Dataset' loaded.")
         logger.info(f"Split: {self.split}")
         logger.info(f"Total images: {total_images}")
 
     def __len__(self):
-        return len(self.img_files)
+        if self.split == "test":
+            return len(self.img_files)
+        return len(self.label_df)
 
     def __getitem__(self, idx):
-        img_path = self.img_files[idx]
-        img_name = os.path.basename(img_path)
-        image = Image.open(img_path).convert("RGB")
 
-        if self.transform:
-            image = self.transform(image)
+        if self.split == "test":
+            img_path = self.img_files[idx]
+            img_name = osp.basename(img_path)
+            image = Image.open(img_path).convert("RGB")
 
-        return img_name, image
+            if self.transform:
+                image = self.transform(image)
+
+            return img_name, image
+
+        elif self.split == "train":
+            row = self.label_df.iloc[idx]
+            img_path = osp.join(
+                self.img_dir,
+                row['shard_name'],
+                'images',
+                row['image_name']
+            )
+
+            image = Image.open(img_path).convert("RGB")
+            label = torch.tensor(row['label'], dtype=torch.long)
+
+            if self.use_jsd:
+                im_tuple = (self.preprocess(image), self.aug(image), self.aug(image))
+                return im_tuple, label
+
+            if self.transform:
+                image = self.transform(image)
+
+            return image, label
 
 class CNNSpot(MyImageDataset):
     def __init__(self, img_dir, split, transform=None, use_jsd=False):

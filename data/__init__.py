@@ -26,7 +26,7 @@ def build_dataset(cfg, is_train, split, is_visualize=False, transform=None):
     elif cfg.DATASET.NAME == "CNNSpotTestSet":
         return CNNSpotTestSet(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
     elif cfg.DATASET.NAME == "NTIRE2026Dataset":
-        return NTIRE2026Dataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
+        return NTIRE2026Dataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform, use_jsd=cfg.RoHL.USE_JSD)
     else:
         return MyImageDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
 

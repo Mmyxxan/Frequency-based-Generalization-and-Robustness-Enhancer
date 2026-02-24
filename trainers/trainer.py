@@ -1372,7 +1372,7 @@ class NTIRETrainer(AbstractTrainer):
             # Assume that original transforms include "resize", "to_tensor", "normalize" in that order
             original_transform = build_transform(self.cfg, is_train=True)
             logger.info("Successfully build original transform!")
-            high_freq_transform, low_freq_transform, augmix_transform = self.build_customized_transform(original_transform.transforms)
+            high_freq_transform, low_freq_transform, augmix_transform, mixed_transform = self.build_customized_transform(original_transform.transforms)
             
             # Notes:
             # AugMix pretrained ResNet50 is available
@@ -1385,10 +1385,12 @@ class NTIRETrainer(AbstractTrainer):
                 self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(high_freq_transform, original_transform))
                 self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(low_freq_transform, original_transform))
                 self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform)) # both high and low frequency corruptions for augmentation
+                self.train_mixed_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(mixed_transform, original_transform))
             else:
                 self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=high_freq_transform)
                 self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=low_freq_transform)
                 self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=augmix_transform) # both high and low frequency corruptions for augmentation
+                self.train_mixed_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=mixed_transform)
             logger.info("Successfully build train loaders: high_freq, low_freq and augmix!")
             if not self.cfg.TRAINER.NO_TEST:
                 self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
@@ -1397,6 +1399,7 @@ class NTIRETrainer(AbstractTrainer):
                 logger.info("No test, no need to build val loader!")
 
         # Build test loader
+        # Force NO_TEST
         if not self.cfg.TRAINER.NO_TEST:
             self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
             self.csv_path = f"{self.cfg.MODEL.OUTPUT_DIR}/submission.csv"
@@ -1450,21 +1453,23 @@ class NTIRETrainer(AbstractTrainer):
         low_freq_transform = transforms.Compose(low_freq_transform)
 
         # Build actual mixed transform
-        # logger.info("MIXED TRANSFORM...")
-        # transform = []
-        # for i, tf in enumerate(original_transform):
-        #     if i == 1:
-        #         gb_k, gb_p, gb_sigma = self.cfg.TRANSFORM.GB_K, self.cfg.TRANSFORM.GB_P, self.cfg.TRANSFORM.GB_SIGMA
-        #         transform += [transforms.RandomApply([transforms.GaussianBlur(gb_k, gb_sigma)], p=gb_p)]
+        logger.info("MIXED TRANSFORM...")
+        mixed_transform = []
+        for i, tf in enumerate(original_transform):
+            if i == 2: # distort_images is applied after ToTensor()
+                # should base on distortions of NTIRE
+                mixed_transform.append(RandomNTIREDistortion())
+                # gb_k, gb_p, gb_sigma = self.cfg.TRANSFORM.GB_K, self.cfg.TRANSFORM.GB_P, self.cfg.TRANSFORM.GB_SIGMA
+                # mixed_transform += [transforms.RandomApply([transforms.GaussianBlur(gb_k, gb_sigma)], p=gb_p)]
 
-        #         jpeg_p, jpeg_quality = self.cfg.TRANSFORM.JPEG_P, self.cfg.TRANSFORM.JPEG_QUALITY
-        #         transform += [transforms.RandomApply([v2.JPEG(quality=jpeg_quality)], p=jpeg_p)]
-        #     transform.append(tf)
-        # for tf in transform:
-        #     logger.info(f"+ {tf}")
-        # transform = transforms.Compose(transform)
+                # jpeg_p, jpeg_quality = self.cfg.TRANSFORM.JPEG_P, self.cfg.TRANSFORM.JPEG_QUALITY
+                # mixed_transform += [transforms.RandomApply([v2.JPEG(quality=jpeg_quality)], p=jpeg_p)]
+            mixed_transform.append(tf)
+        for tf in mixed_transform:
+            logger.info(f"+ {tf}")
+        mixed_transform = transforms.Compose(mixed_transform)
 
-        return high_freq_transform, low_freq_transform, augmix_transform
+        return high_freq_transform, low_freq_transform, augmix_transform, mixed_transform
         
     def set_model_mode(self, mode):
         # There should be more model modes than train, val, test
@@ -1511,13 +1516,22 @@ class NTIRETrainer(AbstractTrainer):
                 self.after_epoch("test_fixed") # two branches, fixed average
             self.after_train("test_fixed")
 
-        # self.set_model_mode(mode="train_adaptive")
-        # self.before_train()
-        # for self.epoch in range(self.start_epoch, self.last_epoch):
-        #     self.before_epoch()
-        #     self.run_epoch("train_adaptive")
-        #     self.after_epoch("test_adaptive") # two branches, adaptive average
-        # self.after_train("test_adaptive")
+        # Write train_adaptive code based on utils_data.py (distort_images(image: torch.Tensor, distort_functions: list = None, distort_values: list = None, max_distortions: int = 3, num_levels: int = 5) -> torch.Tensor function)
+        # fixed combination (average), adaptive, and change one CNN into CLIP or use CLIP-CNN concatenated features
+        # model 1: train RoHL ResNet50 adaptive on training set
+        # model 2: fine-tune CLIP ResNet50 concatenate on training set
+        # model 3: RoHL with Swin-T transformer,...
+        # model 4: artifact fusion
+        # model 5: apply SOTA
+        if self.cfg.RoHL.STAGE == 3:
+            logger.info(f"Phase {self.cfg.RoHL.STAGE} of training RoHL model: training the adaptive weights!")
+            self.set_model_mode(mode="train_adaptive")
+            self.before_train()
+            for self.epoch in range(self.start_epoch, self.last_epoch):
+                self.before_epoch()
+                self.run_epoch("train_adaptive")
+                self.after_epoch("test_adaptive") # two branches, adaptive average
+            self.after_train("test_adaptive")
 
     def before_train(self):
         optimizer = getattr(self, "optimizer", None)
@@ -1550,7 +1564,7 @@ class NTIRETrainer(AbstractTrainer):
         elif mode == "train_1":
             train_loader = self.train_high_freq_loader
         elif mode == "train_adaptive":
-            train_loader = self.train_loader
+            train_loader = self.train_mixed_loader
 
         losses = MetricMeter()
         batch_time = AverageMeter()
