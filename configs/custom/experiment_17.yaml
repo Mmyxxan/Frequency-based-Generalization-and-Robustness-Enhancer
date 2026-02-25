@@ -8,7 +8,7 @@ MODEL:
 
 DATASET:
   NAME: "NTIRE2026Dataset"
-  DATA_DIR: "/kaggle/input/ntire-validation-dataset-update-322026/val_images"
+  DATA_DIR: "/kaggle/input/datasets/anhphmminh/ntire-validation-dataset-updated-1822026/val_images_hard"
   NUM_CLASSES: 2
 
 DATALOADER:
