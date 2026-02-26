@@ -26,7 +26,7 @@ def build_dataset(cfg, is_train, split, is_visualize=False, transform=None):
     elif cfg.DATASET.NAME == "CNNSpotTestSet":
         return CNNSpotTestSet(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
     elif cfg.DATASET.NAME == "NTIRE2026Dataset":
-        return NTIRE2026Dataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform, use_jsd=cfg.RoHL.USE_JSD, shard_dirs=["/kaggle/input/datasets/anhphmminh/ntiretrainingset-shard0/shard_0", "/kaggle/input/datasets/anhphmminh/ntiretrainingset-shard1/shard_1"])
+        return NTIRE2026Dataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform, use_jsd=cfg.RoHL.USE_JSD, shard_dirs=["/kaggle/input/datasets/anhphmminh/ntiretrainingset-shard0/shard_0", "/kaggle/input/datasets/anhphmminh/ntiretrainingset-shard1/shard_1", "/kaggle/input/datasets/anhphmminh/ntiretrainingset-shard2/shard_2", "/kaggle/input/datasets/anhphmminh/ntiretrainingset-shard3/shard_3", "/kaggle/input/datasets/anhphmminh/ntiretrainingset-shard4/shard_4", "/kaggle/input/datasets/anhphmminh/ntiretrainingset-shard5/shard_5"])
     else:
         return MyImageDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
 
