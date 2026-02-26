@@ -3,8 +3,8 @@
 MODEL:
   TYPE: "AveragingModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_Averaging"
-  MODEL_DIR: "/kaggle/input/models/myxxanaplt/train-high-freq-cnndet/pytorch/default/1" # fill in this field in stage 1, 2, 3 or use current model trained on CNNSpot as pretrained
-  MODEL_NAME: "model-best.pth.tar"
+  MODEL_DIR: "/kaggle/input/models/anhphmminh/ntire-phase-0-train-augmix/pytorch/default/1" # fill in this field in stage 1, 2, 3 or use current model trained on CNNSpot as pretrained
+  MODEL_NAME: "model.pth.tar-4"
   RESUME: True
   BACKBONE:
     PRETRAINED: True # false in stage 1, 2, 3
@@ -30,7 +30,7 @@ TRAINER:
   TYPE: 4
   USE_CUDA: True
   IS_TRAIN: True
-  NUM_EPOCHS: 4 # increase to 5, 6, 7 after each phase
+  NUM_EPOCHS: 5 # increase to 6, 7, 8 after each phase
   NO_TEST: True
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
