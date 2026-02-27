@@ -3,7 +3,7 @@
 MODEL:
   TYPE: "AveragingModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_Averaging"
-  MODEL_DIR: "/kaggle/input/models/anhphmminh/ntire-phase-0-train-augmix/pytorch/default/1"
+  MODEL_DIR: "/kaggle/input/models/anhphmminh/ntire-phase-0-train-augmix/pytorch/default/2"
   MODEL_NAME: "model.pth.tar-5"
 
 DATASET:
