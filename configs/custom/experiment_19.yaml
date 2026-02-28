@@ -1,0 +1,48 @@
+# Train Fused_CNN_ResNet50_CLIP_ViT_512_Concat
+# python main.py --config-file "configs/custom/experiment_18.yaml"
+# first finetune with GaussianBlur(0.5)+JPEGCompression(0.5) then fine-tune with distortions provided by the NTIRE challenge
+MODEL:
+  TYPE: "MyModel"
+  NAME: "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
+  MODEL_DIR: "" # fill in this field using current model trained on CNNSpot as pretrained
+  MODEL_NAME: "" # fill in this field using current model trained on CNNSpot as pretrained
+  RESUME: True
+  BACKBONE:
+    PRETRAINED: False
+    FREEZE: False
+
+DATASET:
+  NAME: "NTIRE2026Dataset"
+  DATA_DIR: "" # fill in this field
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 128
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "random_flip", "gaussian_blur", "jpeg_compression", "to_tensor", "normalize"] # change to new distortions by NTIRE
+  NORMALIZE_BACKBONE: True
+  INPUT_SIZE: (224, 224)
+  # GAUSSIAN BLUR
+  GB_P: 0.5
+  GB_K: 21
+  GB_SIGMA: (0.1, 3.0)
+  # JPEG COMPRESSION
+  JPEG_P: 0.5
+  JPEG_QUALITY: (30, 99)
+  # TEST
+
+TRAINER:
+  TYPE: 0
+  USE_CUDA: True
+  IS_TRAIN: TRUE
+  NUM_EPOCHS: 2 # based on where we resume
+  NO_TEST: True # val after epoch and test after train
+  TEST_FINAL_MODEL: "best_val"
+  OPTIM:
+    NAME: "sgd"
+    LR: 0.002
+    STEPSIZE: [20]
+
+EVALUATOR:
+  COMPUTE_CONFUSION_MATRIX: False

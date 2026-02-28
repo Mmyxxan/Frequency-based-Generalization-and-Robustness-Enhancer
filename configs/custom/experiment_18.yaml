@@ -7,7 +7,7 @@ MODEL:
   MODEL_NAME: "model.pth.tar-4"
   RESUME: True
   BACKBONE:
-    PRETRAINED: True # false in stage 1, 2, 3
+    PRETRAINED: True # false in stage 1, 2, 3 or if use pretrained CNNSpot
     FREEZE: False
     RESNET50_AM_WEIGHTS: "/kaggle/input/augmix-resnet50-imagenet/pytorch/default/1/checkpoint.pth.tar"
 
