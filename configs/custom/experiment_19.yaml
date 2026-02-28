@@ -1,5 +1,5 @@
 # Train Fused_CNN_ResNet50_CLIP_ViT_512_Concat
-# python main.py --config-file "configs/custom/experiment_18.yaml"
+# python main.py --config-file "configs/custom/experiment_19.yaml"
 # first finetune with GaussianBlur(0.5)+JPEGCompression(0.5) then fine-tune with distortions provided by the NTIRE challenge
 MODEL:
   TYPE: "MyModel"
