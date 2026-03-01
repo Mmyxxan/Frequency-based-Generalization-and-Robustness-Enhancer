@@ -9,6 +9,7 @@ import torch
 from models import MODEL_TO_BACKBONES
 
 from utils import logger
+from utils import RandomNTIREDistortion
 
 AVAI_CHOICES = [
     "resize",
@@ -19,6 +20,7 @@ AVAI_CHOICES = [
     "jpeg_compression",
     # add more corruptions here
     "to_tensor",
+    "random_ntire_distortion",
     "gaussian_noise", # Gaussian Noise does not support PIL images
     "normalize",
 ]
@@ -113,6 +115,13 @@ def build_transform(cfg, is_train, is_visualize=False, use_jsd=False):
 
     # Gaussian noise MUST be after ToTensor
     if is_train or not cfg.TRANSFORM.NO_TRANSFORM_TEST:
+        if "to_tensor" in choices and "random_ntire_distortion" in choices:
+            tf = RandomNTIREDistortion()
+            logger.info(f"+ {tf}")
+            tfm += [
+                tf
+            ]
+
         if "to_tensor" in choices and "gaussian_noise" in choices:
             logger.info(
                 f"+ gaussian noise (p={cfg.TRANSFORM.GN_P}, "

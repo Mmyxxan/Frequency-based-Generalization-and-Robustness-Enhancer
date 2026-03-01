@@ -4,8 +4,8 @@
 MODEL:
   TYPE: "MyModel"
   NAME: "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
-  MODEL_DIR: "" # fill in this field using current model trained on CNNSpot as pretrained
-  MODEL_NAME: "" # fill in this field using current model trained on CNNSpot as pretrained
+  MODEL_DIR: "/kaggle/input/models/anhphmminh/fused-cnn-resnet50-clip-vit-concat/pytorch/default/1/output/cnn_spot/model" # fill in this field using current model trained on CNNSpot as pretrained
+  MODEL_NAME: "model-best.pth.tar" # fill in this field using current model trained on CNNSpot as pretrained
   RESUME: True
   BACKBONE:
     PRETRAINED: False
@@ -20,7 +20,8 @@ DATALOADER:
   BATCH_SIZE: 128
 
 TRANSFORM:
-  TRANSFORMS: ["resize", "random_flip", "gaussian_blur", "jpeg_compression", "to_tensor", "normalize"] # change to new distortions by NTIRE
+  # TRANSFORMS: ["resize", "random_flip", "gaussian_blur", "jpeg_compression", "to_tensor", "normalize"] 
+  TRANSFORMS: ["resize", "random_flip", "to_tensor", "random_ntire_distortion", "normalize"] # change to new distortions by NTIRE
   NORMALIZE_BACKBONE: True
   INPUT_SIZE: (224, 224)
   # GAUSSIAN BLUR
