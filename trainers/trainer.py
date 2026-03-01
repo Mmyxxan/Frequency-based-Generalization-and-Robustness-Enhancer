@@ -1705,6 +1705,9 @@ class NTIRETrainer(AbstractTrainer):
 
         logger.info(f"Evaluate on the *{split}* set")
 
+        with open(self.csv_path, "w") as f:
+            f.write("image_name,score\n")
+
         for batch_idx, batch in enumerate(tqdm(data_loader)):
             imname, im = self.parse_batch_test(batch)
             output = self.model_inference(im)
