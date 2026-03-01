@@ -17,7 +17,7 @@ DATASET:
   NUM_CLASSES: 2
 
 DATALOADER:
-  BATCH_SIZE: 128
+  BATCH_SIZE: 32
 
 TRANSFORM:
   # TRANSFORMS: ["resize", "random_flip", "gaussian_blur", "jpeg_compression", "to_tensor", "normalize"] 
