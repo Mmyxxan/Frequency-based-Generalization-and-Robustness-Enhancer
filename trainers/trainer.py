@@ -365,6 +365,61 @@ class StandardTrainer(AbstractTrainer):
 
         return input, label
         
+    @torch.no_grad()
+    def test_and_write_results(self, split="test"):
+        """Test and write results in .csv file."""
+        if split == "test":
+            data_loader = self.test_loader
+        elif split == "val":
+            data_loader = self.val_loader
+
+        logger.info(f"Evaluate on the *{split}* set")
+
+        with open(self.csv_path, "w") as f:
+            f.write("image_name,score\n")
+
+        for batch_idx, batch in enumerate(tqdm(data_loader)):
+            imname, im = self.parse_batch_test_and_write_results(batch)
+            output = self.model_inference(im)
+            self.write_to_csv(imname, output)
+            
+        # Show elapsed time
+        elapsed = round(time.time() - self.time_start)
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+        logger.info(f"Elapsed: {elapsed}")
+
+        return
+    
+    def write_to_csv(self, imname, output):
+        """
+        imname: list[str] or tuple[str]
+        output: torch.Tensor [B, 2] -> [real, fake]
+        """
+        # convert logits -> probabilities
+        output = torch.softmax(output, dim=1)
+        
+        # ensure cpu & numpy
+        output = output.detach().cpu()
+
+        # fake score is index 1
+        fake_scores = output[:, 1].numpy()
+
+        # batch-safe writing
+        with open(self.csv_path, "a") as f:
+            for name, score in zip(imname, fake_scores):
+                f.write(f"{name},{score:.6f}\n")
+
+    def parse_batch_test_and_write_results(self, batch):
+        imname = batch[0]
+        input = batch[1]
+
+        if isinstance(input, list):
+            input = [x.to(self.device) for x in input]
+        else:
+            input = input.to(self.device)
+
+        return imname, input
+        
 class BaselineTester(AbstractTrainer):
     def __init__(self, cfg):
         self.cfg = cfg
