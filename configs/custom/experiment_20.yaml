@@ -1,3 +1,5 @@
+# Test Fused_CNN_ResNet50_CLIP_ViT_512_Concat on NTIRE
+# python main.py --config-file "configs/custom/experiment_20.yaml" --eval-only
 MODEL:
   TYPE: "MyModel"
   NAME: "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
