@@ -128,7 +128,10 @@ def main(args):
         if cfg.TRAINER.TYPE == 4:
             trainer.test_and_write_results(cfg.RoHL.TEST_MODE)
         else:
-            trainer.test()
+            if args.test_and_write_results:
+                trainer.test_and_write_results()
+            else:
+                trainer.test()
         return
     
     if args.inspect_weights:
@@ -185,6 +188,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--eval-only", action="store_true", help="evaluation only"
+    )
+    parser.add_argument(
+        "--test-and-write-results", action="store_true", help="test and write results to .csv file"
     )
     parser.add_argument(
         "--inspect-weights", action="store_true", help="inspect weights only"
