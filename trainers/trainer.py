@@ -294,6 +294,7 @@ class StandardTrainer(AbstractTrainer):
     def __init__(self, cfg):
         super().__init__(cfg)
 
+        self.csv_path = f"{self.cfg.MODEL.OUTPUT_DIR}/submission.csv"
         logger.info("Successfully build StandardTrainer!")
 
     def run_epoch(self):
