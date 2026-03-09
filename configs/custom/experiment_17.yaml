@@ -29,7 +29,7 @@ TRAINER:
 
 RoHL:
   USE_JSD: False
-  TEST_MODE: "test_fixed"
+  TEST_MODE: "test_adaptive"
 
 EVALUATOR:
   TYPE: 1
