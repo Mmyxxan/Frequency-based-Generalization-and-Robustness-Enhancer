@@ -125,13 +125,15 @@ def main(args):
         trainer.before_train()
         if cfg.TRAINER.TYPE == 3:
             trainer.test(cfg.RoHL.TEST_MODE)
-        if cfg.TRAINER.TYPE == 4:
-            trainer.test_and_write_results(cfg.RoHL.TEST_MODE)
         else:
-            if args.test_and_write_results:
-                trainer.test_and_write_results()
-            else:
-                trainer.test()
+            trainer.test()
+        # if cfg.TRAINER.TYPE == 4:
+        #     trainer.test_and_write_results(cfg.RoHL.TEST_MODE)
+        # else:
+        #     if args.test_and_write_results:
+        #         trainer.test_and_write_results()
+        #     else:
+        #         trainer.test()
         return
     
     if args.inspect_weights:
