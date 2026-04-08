@@ -3,16 +3,12 @@
 # timm
 # torchvision
 yacs
-transformers==4.41.0
+transformers
 datasets
--e git+https://github.com/fra31/auto-attack.git#egg=autoattack
+git+https://github.com/fra31/auto-attack.git
 open_clip_torch
 git+https://github.com/openai/CLIP.git
-opencv-python>=4.8.0
-scikit-image>=0.21.0
-PyWavelets>=1.5.1
-scipy>=1.11.1
-numpy==1.23.5          # Downgraded to fix JAX / TensorFlow issues
-matplotlib>=3.7.2
-tensorflow==2.13.0      # Compatible with numpy 1.23.5
-jax[cuda11_cudnn86]==0.4.16  # Match your CUDA version
+opencv-python
+# scipy
+scikit-image
+PyWavelets
