@@ -6,6 +6,35 @@ from torchvision.transforms.v2 import JPEG, GaussianNoise
 import numpy as np
 import torch
 
+import cv2 
+from scipy.signal import wiener
+import pywt
+from skimage.restoration import denoise_wavelet
+# Gaussian Blur: Kernel size (k, k), Sigma (σ)
+# (3,3), sigma=0.5
+# (5,5), sigma=1.0
+# (7,7), sigma=1.5
+# (9,9), sigma=2.0
+# Wiener filter: Window size (m, n), (Optional) Noise variance (if manually set)
+# (3,3)
+# (5,5)
+# (7,7)
+# (9,9)
+# Wavelet denoising: wavelet type, wavelet_levels, method (BayesShrink / VisuShrink), mode (soft / hard thresholding)
+# denoise_wavelet(img,
+#                 wavelet='db1',
+#                 wavelet_levels=2,
+#                 method='BayesShrink',
+#                 mode='soft')
+# 'db1', 'db2', 'sym4', 'coif1'
+# levels = 1, 2, 3, 4
+# 'BayesShrink' → ✅ best general choice
+# 'VisuShrink' → stronger denoising but may oversmooth
+# 'soft' → smoother (recommended)
+# 'hard' → sharper but can look unnatural
+
+from PIL import Image
+
 from models import MODEL_TO_BACKBONES
 
 from utils import logger
@@ -17,6 +46,8 @@ AVAI_CHOICES = [
     "brightness",
     "contrast",
     "gaussian_blur",
+    "wiener_filter",
+    "wavelet_denoising",
     "jpeg_compression",
     # add more corruptions here
     "to_tensor",
@@ -30,6 +61,49 @@ INTERPOLATION_MODES = {
     "bicubic": InterpolationMode.BICUBIC,
     "nearest": InterpolationMode.NEAREST,
 }
+
+class WienerFilterTransform:
+    def __init__(self, mysize=(5, 5), noise=None):
+        self.mysize = mysize
+        self.noise = noise
+
+    def __call__(self, img):
+        img_np = np.array(img).astype(np.float32)
+
+        if img_np.ndim == 3:
+            out = np.zeros_like(img_np)
+            for c in range(img_np.shape[2]):
+                out[..., c] = wiener(img_np[..., c], mysize=self.mysize, noise=self.noise)
+        else:
+            out = wiener(img_np, mysize=self.mysize, noise=self.noise)
+
+        out = np.clip(out, 0, 255).astype(np.uint8)
+        return Image.fromarray(out)
+    
+# JSD? PIL?
+
+class WaveletDenoiseTransform:
+    def __init__(self, wavelet='db1', wavelet_levels=2,
+                 method='BayesShrink', mode='soft'):
+        self.wavelet = wavelet
+        self.wavelet_levels = wavelet_levels
+        self.method = method
+        self.mode = mode
+
+    def __call__(self, img):
+        img_np = np.array(img).astype(np.float32) / 255.0
+
+        out = denoise_wavelet(
+            img_np,
+            wavelet=self.wavelet,
+            wavelet_levels=self.wavelet_levels,
+            method=self.method,
+            mode=self.mode,
+            channel_axis=-1 if img_np.ndim == 3 else None
+        )
+
+        out = np.clip(out * 255.0, 0, 255).astype(np.uint8)
+        return Image.fromarray(out)
 
 class BackbonePreprocessWrapper:
     def __init__(self, backbones):
@@ -102,6 +176,39 @@ def build_transform(cfg, is_train, is_visualize=False, use_jsd=False):
             logger.info(f"+ gaussian blur (p={cfg.TRANSFORM.GB_P}, kernel={cfg.TRANSFORM.GB_K}, sigma={cfg.TRANSFORM.GB_SIGMA})")
             gb_k, gb_p, gb_sigma = cfg.TRANSFORM.GB_K, cfg.TRANSFORM.GB_P, cfg.TRANSFORM.GB_SIGMA
             tfm += [RandomApply([GaussianBlur(gb_k, gb_sigma)], p=gb_p)]
+
+        if "wiener_filter" in choices:
+            logger.info(
+                f"+ wiener filter (p={cfg.TRANSFORM.WIENER_P}, "
+                f"kernel={cfg.TRANSFORM.WIENER_K}, noise={cfg.TRANSFORM.WIENER_NOISE})"
+            )
+            tfm += [
+                RandomApply(
+                    [WienerFilterTransform(
+                        mysize=cfg.TRANSFORM.WIENER_K,
+                        noise=cfg.TRANSFORM.WIENER_NOISE
+                    )],
+                    p=cfg.TRANSFORM.WIENER_P
+                )
+            ]
+
+        if "wavelet_denoising" in choices:
+            logger.info(
+                f"+ wavelet denoising (p={cfg.TRANSFORM.WAVELET_P}, "
+                f"wavelet={cfg.TRANSFORM.WAVELET_TYPE}, "
+                f"levels={cfg.TRANSFORM.WAVELET_LEVELS})"
+            )
+            tfm += [
+                RandomApply(
+                    [WaveletDenoiseTransform(
+                        wavelet=cfg.TRANSFORM.WAVELET_TYPE,
+                        wavelet_levels=cfg.TRANSFORM.WAVELET_LEVELS,
+                        method=cfg.TRANSFORM.WAVELET_METHOD,
+                        mode=cfg.TRANSFORM.WAVELET_MODE
+                    )],
+                    p=cfg.TRANSFORM.WAVELET_P
+                )
+            ]
 
         if "jpeg_compression" in choices:
             logger.info(f"+ jpeg compression (p={cfg.TRANSFORM.JPEG_P}, quality={cfg.TRANSFORM.JPEG_QUALITY})")
