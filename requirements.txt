@@ -8,7 +8,9 @@ datasets
 git+https://github.com/fra31/auto-attack.git
 open_clip_torch
 git+https://github.com/openai/CLIP.git
-opencv-python
-scipy
-scikit-image
-PyWavelets
+opencv-python>=4.8.0
+scipy>=1.11.1
+scikit-image>=0.21.0
+PyWavelets>=1.5.1
+numpy==1.24.4
+matplotlib>=3.7.2
