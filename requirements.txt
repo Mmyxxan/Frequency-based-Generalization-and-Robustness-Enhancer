@@ -12,5 +12,7 @@ opencv-python>=4.8.0
 scikit-image>=0.21.0
 PyWavelets>=1.5.1
 scipy>=1.11.1
-numpy==1.24.4
+numpy==1.23.5          # Downgraded to fix JAX / TensorFlow issues
 matplotlib>=3.7.2
+tensorflow==2.13.0      # Compatible with numpy 1.23.5
+jax[cuda11_cudnn86]==0.4.16  # Match your CUDA version
