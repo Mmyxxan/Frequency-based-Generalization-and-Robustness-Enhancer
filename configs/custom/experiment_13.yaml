@@ -30,7 +30,7 @@ TRAINER:
   TYPE: 3
   USE_CUDA: True
   IS_TRAIN: True
-  NUM_EPOCHS: 3
+  NUM_EPOCHS: 5
   NO_TEST: False
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
