@@ -12,12 +12,12 @@ MODEL:
     RESNET50_AM_WEIGHTS: "/kaggle/input/augmix-resnet50-imagenet/pytorch/default/1/checkpoint.pth.tar"
 
 DATASET:
-  NAME: "CNNSpot"
-  DATA_DIR: "/kaggle/input/cnnspot/cnn_spot"
+  NAME: "CNNSpotTestSet"
+  DATA_DIR: ""
   NUM_CLASSES: 2
 
 DATALOADER:
-  BATCH_SIZE: 32
+  BATCH_SIZE: 128
 
 TRANSFORM:
   TRANSFORMS: ["resize", "to_tensor", "normalize"]
@@ -39,7 +39,7 @@ TRAINER:
     STEPSIZE: [20]
 
 RoHL:
-  STAGE: 2
+  STAGE: 1
   USE_JSD: False
 
 EVALUATOR:
