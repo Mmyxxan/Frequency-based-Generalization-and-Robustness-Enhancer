@@ -278,7 +278,7 @@ class CNNSpotTestSet(MyImageDataset):
         self.labels = []
 
         data_dir = kaggle_dataset_paths[self.dataset_name]
-        if split == "test" or split == "train":
+        if split == "test" or split == "val" or split == "train":
             if self.dataset_name.lower() not in ["cyclegan", "progan", "stylegan", "stylegan2"]:
                 label_names = listdir_nohidden(data_dir)
                 for label_name in label_names:
