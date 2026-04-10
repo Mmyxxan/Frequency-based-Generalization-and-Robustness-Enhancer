@@ -27,7 +27,7 @@ kaggle_dataset_paths = {
     "StarGAN": osp.join(kaggle_root_dir["CNNSpotTest"], "stargan"),
     "StyleGAN": osp.join(kaggle_root_dir["CNNSpotTest"], "stylegan"),
     "StyleGAN2": osp.join(kaggle_root_dir["CNNSpotTest"], "stylegan2"),
-    "StyleGAN3": osp.join(kaggle_root_dir["CLIPpingEval"], "stylegan3"),
+    "StyleGAN3": osp.join(kaggle_root_dir["CLIPpingEval"], "stylegan3", "images", "val"),
     "WhichFaceIsReal": osp.join(kaggle_root_dir["CNNSpotTest"], "whichfaceisreal"),
 }
 
@@ -281,7 +281,7 @@ class CNNSpotTestSet(MyImageDataset):
         data_dir = kaggle_dataset_paths[self.dataset_name]
         if split == "test" or split == "val" or split == "train":
             if self.dataset_name.lower() in ["stylegan3"]:
-                label_names = listdir_nohidden(osp.join(data_dir, "images", "val"))
+                label_names = listdir_nohidden(data_dir)
                 for label_name in label_names:
                     label_dir = osp.join(data_dir, label_name)
                     label = 0 if label_name == "n01440764" else 1
