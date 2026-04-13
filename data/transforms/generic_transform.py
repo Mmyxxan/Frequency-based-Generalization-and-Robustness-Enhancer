@@ -10,28 +10,6 @@ import cv2
 from scipy.signal import wiener
 import pywt
 from skimage.restoration import denoise_wavelet
-# Gaussian Blur: Kernel size (k, k), Sigma (σ)
-# (3,3), sigma=0.5
-# (5,5), sigma=1.0
-# (7,7), sigma=1.5
-# (9,9), sigma=2.0
-# Wiener filter: Window size (m, n), (Optional) Noise variance (if manually set)
-# (3,3)
-# (5,5)
-# (7,7)
-# (9,9)
-# Wavelet denoising: wavelet type, wavelet_levels, method (BayesShrink / VisuShrink), mode (soft / hard thresholding)
-# denoise_wavelet(img,
-#                 wavelet='db1',
-#                 wavelet_levels=2,
-#                 method='BayesShrink',
-#                 mode='soft')
-# 'db1', 'db2', 'sym4', 'coif1'
-# levels = 1, 2, 3, 4
-# 'BayesShrink' → ✅ best general choice
-# 'VisuShrink' → stronger denoising but may oversmooth
-# 'soft' → smoother (recommended)
-# 'hard' → sharper but can look unnatural
 
 from PIL import Image
 
