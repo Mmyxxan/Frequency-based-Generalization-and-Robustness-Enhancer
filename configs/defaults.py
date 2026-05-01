@@ -17,6 +17,9 @@ _C.MODEL.BACKBONE = CN()
 _C.MODEL.BACKBONE.PRETRAINED = False
 _C.MODEL.BACKBONE.FREEZE = True
 _C.MODEL.BACKBONE.RESNET50_AM_WEIGHTS = ""
+# MyModelUponAveragingModel
+_C.MODEL.MyModelUponAveragingModel = CN()
+_C.MODEL.MyModelUponAveragingModel.PRETRAINED_PATH = ""
 
 # DATASET
 _C.DATASET = CN()

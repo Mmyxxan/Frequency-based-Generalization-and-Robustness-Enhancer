@@ -120,7 +120,57 @@ class FusedBackbone(Backbone):
         else:
             logger.error(f"Unknown fuse technique: {self.fuse_technique}")
             raise ValueError(f"Unknown fuse technique: {self.fuse_technique}")
+        
+class FusedBackBonePretrained(FusedBackbone):
+    def _freeze_module(self, module):
+        for p in module.parameters():
+            p.requires_grad = False
 
+    def _unfreeze_module(self, module):
+        for p in module.parameters():
+            p.requires_grad = True
+    
+    def __init__(self, backbones, backbone_list, fuse_technique="Concat", project_dim=512, freeze=True, pretrained=False, **kwargs):
+        super().__init__(backbone_list, project_dim, fuse_technique, freeze, pretrained)
+        self.backbone_list = backbone_list
+        self.fuse_technique = fuse_technique
+
+        self.backbones = backbones
+        if freeze:
+            # Freeze pretrained backbones
+            for backbone in self.backbones:
+                self._freeze_module(backbone)
+        self.projections = nn.ModuleList()
+
+        for i, backbone_cls in enumerate(self.backbone_list):
+            projection = nn.Linear(self.backbones[i]._out_features, project_dim)
+            self.projections.append(projection)
+
+        num_backbones = len(self.backbone_list)
+
+        if self.fuse_technique == "Concat":
+            self._out_features = project_dim * num_backbones
+
+        elif self.fuse_technique in ["Gated_fusion", "Gated_concat"]:
+            # Support only exactly 2 backbones for gated fusion/concat
+            if num_backbones != 2:
+                logger.error(f"{self.fuse_technique} requires exactly 2 backbones, but got {num_backbones}")
+                raise ValueError(f"{self.fuse_technique} requires exactly 2 backbones, but got {num_backbones}")
+            # Linear layer projects concatenated features (2*D) to D
+            self.gate_linear = nn.Linear(2 * project_dim, project_dim)
+
+            if self.fuse_technique == "Gated_fusion":
+                self._out_features = project_dim
+            else:  # Gated_concat
+                self._out_features = 2 * project_dim
+
+        elif self.fuse_technique == "Self_attention":
+            self.self_attention = SelfAttention(embed_dim=project_dim)
+            self._out_features = project_dim
+
+        else:
+            logger.error(f"Unknown fuse technique: {self.fuse_technique}")
+            raise ValueError(f"Unknown fuse technique: {self.fuse_technique}")
 class AveragingModel(Backbone):
     def preprocess(self, shared_tensor):
         return [backbone_cls.preprocess(shared_tensor) for backbone_cls in self.backbone_list]

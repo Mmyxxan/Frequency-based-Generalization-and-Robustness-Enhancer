@@ -1,4 +1,4 @@
-from .fused.fused_backbone import FusedBackbone
+from .fused.fused_backbone import FusedBackbone, FusedBackBonePretrained
 from .fused.fused_backbone import AveragingModel as AM
 from .fused.clip_vit import CLIPViT
 from .fused.cnn_resnet50 import ResNet50
@@ -276,6 +276,58 @@ class AveragingModel(MyModel):
     
     # load_best_model, resume_or_load_checkpoint and save_checkpoint are inherited from MyModel
 
+class MyModelUponAveragingModel(MyModel):
+    def __init__(self, cfg, **kwargs):
+        super().__init__(cfg)
+        map_location = None if cfg.TRAINER.USE_CUDA else "cpu"
+        pretrained_backbone = AM(backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], num_classes=cfg.DATASET.NUM_CLASSES,
+                          freeze=False, pretrained=cfg.MODEL.BACKBONE.PRETRAINED, resnet50_am_weights=cfg.MODEL.BACKBONE.RESNET50_AM_WEIGHTS, map_location=map_location)
+
+        pretrained_path = cfg.MODEL.MyModelUponAveragingModel.PRETRAINED_PATH
+        if cfg.TRAINER.IS_TRAIN:
+            if not osp.exists(pretrained_path):
+                logger.error('File is not found at "{}"'.format(pretrained_path))
+                raise FileNotFoundError('File is not found at "{}"'.format(pretrained_path))        
+
+            try:
+                checkpoint = torch.load(pretrained_path, map_location=map_location)
+
+            except UnicodeDecodeError:
+                pickle.load = partial(pickle.load, encoding="latin1")
+                pickle.Unpickler = partial(pickle.Unpickler, encoding="latin1")
+                checkpoint = torch.load(
+                    pretrained_path, pickle_module=pickle, map_location=map_location
+                )
+
+            except Exception:
+                logger.error('Unable to load checkpoint from "{}"'.format(pretrained_path))
+                raise
+
+            state_dict = checkpoint["state_dict"]
+            epoch = checkpoint["epoch"]
+            val_result = checkpoint["val_result"]
+            
+            new_state_dict = {}
+            for k, v in state_dict.items():
+                # Keep only backbone weights
+                if k.startswith("backbone."):
+                    # Remove "backbone." prefix
+                    new_k = k[len("backbone."):]
+                    new_state_dict[new_k] = v
+                    
+            pretrained_backbone.load_state_dict(new_state_dict)
+
+            if val_result:
+                logger.info(f"Successfully load pretrained backbone weights {pretrained_path} from AveragingModel/{cfg.MODEL.NAME} (epoch={epoch}, val_result={val_result:.1f})")
+            else:
+                logger.info(f"Successfully load pretrained backbone weights {pretrained_path} from AveragingModel/{cfg.MODEL.NAME} (epoch={epoch}, val_result=None)")
+        
+        self.backbone = FusedBackBonePretrained(pretrained_backbone.backbones, backbone_list=MODEL_TO_BACKBONES[cfg.MODEL.NAME], fuse_technique="Concat", project_dim=512,
+                             freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
+
+        fdim = self.backbone.out_features
+        self.classifier = nn.Linear(fdim, cfg.DATASET.NUM_CLASSES)
+
 def build_model(cfg):
     if cfg.MODEL.TYPE == "MyModel":
         logger.info(f"Loading my model...")
@@ -283,6 +335,9 @@ def build_model(cfg):
     elif cfg.MODEL.TYPE == "AveragingModel":
         logger.info(f"Loading averaging model...")
         return AveragingModel(cfg=cfg)
+    elif cfg.MODEL.TYPE == "MyModelUponAveragingModel":
+        logger.info(f"Loading my model upon averaging model...")
+        return MyModelUponAveragingModel(cfg=cfg)
     elif cfg.MODEL.TYPE == "Baseline":
         logger.info(f"Loading baseline...")
         return Baseline(cfg=cfg)
