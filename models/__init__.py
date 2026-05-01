@@ -284,10 +284,10 @@ class MyModelUponAveragingModel(MyModel):
                           freeze=False, pretrained=cfg.MODEL.BACKBONE.PRETRAINED, resnet50_am_weights=cfg.MODEL.BACKBONE.RESNET50_AM_WEIGHTS, map_location=map_location)
 
         pretrained_path = cfg.MODEL.MyModelUponAveragingModel.PRETRAINED_PATH
-        if cfg.TRAINER.IS_TRAIN:
-            if not osp.exists(pretrained_path):
-                logger.error('File is not found at "{}"'.format(pretrained_path))
-                raise FileNotFoundError('File is not found at "{}"'.format(pretrained_path))        
+        if cfg.TRAINER.IS_TRAIN and osp.exists(pretrained_path):
+            # if not osp.exists(pretrained_path):
+            #     logger.error('File is not found at "{}"'.format(pretrained_path))
+            #     raise FileNotFoundError('File is not found at "{}"'.format(pretrained_path))        
 
             try:
                 checkpoint = torch.load(pretrained_path, map_location=map_location)
