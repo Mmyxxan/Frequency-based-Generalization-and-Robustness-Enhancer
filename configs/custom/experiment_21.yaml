@@ -7,7 +7,7 @@ MODEL:
     PRETRAINED: False
     FREEZE: True
   MyModelUponAveragingModel:
-    PRETRAINED_PATH: "/kaggle/input/models/myxxanaplt/train-high-freq-cnndet/pytorch/default/1"
+    PRETRAINED_PATH: "/kaggle/input/models/myxxanaplt/train-high-freq-cnndet/pytorch/default/1/model-best.pth.tar"
 
 DATASET:
   NAME: "CNNSpot"
