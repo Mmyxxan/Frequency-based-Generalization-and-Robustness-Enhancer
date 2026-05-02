@@ -18,7 +18,7 @@ DATALOADER:
   BATCH_SIZE: 128
 
 TRANSFORM:
-  TRANSFORMS: ["resize", "random_flip", "gaussian_blur", "jpeg_compression", "to_tensor", "normalize"]
+  TRANSFORMS: ["resize", "random_flip", "to_tensor", "normalize"]
   NORMALIZE_BACKBONE: True
   INPUT_SIZE: (224, 224)
   # GAUSSIAN BLUR
