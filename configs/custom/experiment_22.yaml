@@ -3,7 +3,7 @@
 MODEL:
   TYPE: "MyModelUponAveragingModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_512_Concat"
-  MODEL_DIR: "/kaggle/input/models/anhphmminh/fused-hf-lf-resnet50/pytorch/default/1"
+  MODEL_DIR: "/kaggle/input/models/anhphmminh/fused-hf-lf-resnet50-no-aug/pytorch/default/1"
   MODEL_NAME: "model-best.pth.tar"
   BACKBONE:
     PRETRAINED: False
