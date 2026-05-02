@@ -35,7 +35,7 @@ TRAINER:
   TYPE: 0
   USE_CUDA: True
   IS_TRAIN: True
-  NUM_EPOCHS: 2
+  NUM_EPOCHS: 1
   NO_TEST: False # val after epoch and test after train
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
