@@ -1139,13 +1139,25 @@ class RoHLTrainer(AbstractTrainer):
                 self.after_epoch("test_fixed") # two branches, fixed average
             self.after_train("test_fixed")
 
-        # self.set_model_mode(mode="train_adaptive")
-        # self.before_train()
-        # for self.epoch in range(self.start_epoch, self.last_epoch):
-        #     self.before_epoch()
-        #     self.run_epoch("train_adaptive")
-        #     self.after_epoch("test_adaptive") # two branches, adaptive average
-        # self.after_train("test_adaptive")
+        if self.cfg.RoHL.STAGE == 3:
+            logger.info(f"Phase {self.cfg.RoHL.STAGE} of training RoHL model: training the adaptive weights!")
+            self.set_model_mode(mode="train_adaptive")
+            self.before_train()
+            for self.epoch in range(self.start_epoch, self.last_epoch):
+                self.before_epoch()
+                self.run_epoch("train_adaptive")
+                self.after_epoch("test_adaptive") # two branches, adaptive average
+            self.after_train("test_adaptive")
+            
+        if self.cfg.RoHL.STAGE == 4:
+            logger.info(f"Phase {self.cfg.RoHL.STAGE} of training RoHL model: training the HF classifier with LF augmentations!")
+            self.set_model_mode(mode="train_classifier_1")
+            self.before_train()
+            for self.epoch in range(self.start_epoch, self.last_epoch):
+                self.before_epoch()
+                self.run_epoch("train_classifier_1")
+                self.after_epoch("test_1") # two branches, adaptive average
+            self.after_train("test_1")
 
     def before_train(self):
         optimizer = getattr(self, "optimizer", None)
@@ -1179,6 +1191,8 @@ class RoHLTrainer(AbstractTrainer):
             train_loader = self.train_high_freq_loader
         elif mode == "train_adaptive":
             train_loader = self.train_loader
+        elif mode == "train_classifier_1":
+            train_loader = self.train_low_freq_loader
 
         losses = MetricMeter()
         batch_time = AverageMeter()

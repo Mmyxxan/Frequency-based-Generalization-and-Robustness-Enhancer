@@ -232,6 +232,10 @@ class AveragingModel(Backbone):
                 # Train the first ResNet50 to be AM model then load the weights to the other ResNet
                 self.unfreeze_module(self.backbones[0])
                 self.unfreeze_module(self.classifiers[0])
+            elif "train_classifier" in mode:
+                # train_classifier_i
+                idx = int(mode.split("_")[2])
+                self.unfreeze_module(self.classifiers[idx])
             else:
                 # train_i
                 idx = int(mode.split("_")[1])
@@ -262,6 +266,11 @@ class AveragingModel(Backbone):
             elif self.mode == "train_augmix":
                 weights = torch.zeros(B, N, device=device)
                 weights[:, 0] = 1.0
+                
+            elif "train_classifier" in self.mode:
+                idx = int(self.mode.split("_")[2])
+                weights = torch.zeros(B, N, device=device)
+                weights[:, idx] = 1.0
 
             else:
                 # train_i → one-hot weights
