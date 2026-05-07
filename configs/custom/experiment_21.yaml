@@ -3,11 +3,14 @@
 MODEL:
   TYPE: "MyModelUponAveragingModel"
   NAME: "Fused_CNN_ResNet50_CNN_ResNet50_512_Concat"
+  MODEL_DIR: "/kaggle/input/models/anhphmminh/fused-hf-lf-resnet50-no-aug/pytorch/default/1"
+  MODEL_NAME: "model-best.pth.tar"
+  RESUME: True
   BACKBONE:
     PRETRAINED: False
     FREEZE: True
   MyModelUponAveragingModel:
-    PRETRAINED_PATH: "/kaggle/input/models/myxxanaplt/train-high-freq-cnndet/pytorch/default/1/model-best.pth.tar"
+    PRETRAINED_PATH: ""
 
 DATASET:
   NAME: "CNNSpot"
@@ -18,7 +21,7 @@ DATALOADER:
   BATCH_SIZE: 128
 
 TRANSFORM:
-  TRANSFORMS: ["resize", "random_flip", "to_tensor", "normalize"]
+  TRANSFORMS: ["resize", "random_flip", "contrast", "to_tensor", "normalize"]
   NORMALIZE_BACKBONE: True
   INPUT_SIZE: (224, 224)
   # GAUSSIAN BLUR
@@ -28,6 +31,9 @@ TRANSFORM:
   # JPEG COMPRESSION
   JPEG_P: 0.5
   JPEG_QUALITY: (30, 99)
+  # CONTRAST
+  CONTRAST: (0.6, 1.4)
+  CONTRAST_P: 1.0
   # TEST
   NO_TRANSFORM_TEST: True
 
@@ -35,7 +41,7 @@ TRAINER:
   TYPE: 0
   USE_CUDA: True
   IS_TRAIN: True
-  NUM_EPOCHS: 1
+  NUM_EPOCHS: 2
   NO_TEST: False # val after epoch and test after train
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
