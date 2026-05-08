@@ -4,6 +4,9 @@ MODEL:
   TYPE: "MyModel"
   NAME: "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
   RESUME: False
+  BACKBONE:
+    PRETRAINED: True
+    FREEZE: True
 
 DATASET:
   NAME: "CNNSpot"
