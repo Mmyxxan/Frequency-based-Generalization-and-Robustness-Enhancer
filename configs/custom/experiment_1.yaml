@@ -3,9 +3,7 @@
 MODEL:
   TYPE: "MyModel"
   NAME: "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
-  MODEL_DIR: "/kaggle/input/models/anhphmminh/fused-cnn-resnet50-clip-vit-concat/pytorch/default/1/output/cnn_spot/model"
-  MODEL_NAME: "model-best.pth.tar"
-  RESUME: True
+  RESUME: False
 
 DATASET:
   NAME: "CNNSpot"
@@ -36,7 +34,7 @@ TRAINER:
   TYPE: 0
   USE_CUDA: True
   IS_TRAIN: TRUE
-  NUM_EPOCHS: 2
+  NUM_EPOCHS: 1
   NO_TEST: True # val after epoch and test after train
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
