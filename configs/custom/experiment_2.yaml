@@ -4,16 +4,16 @@ MODEL:
   TYPE: "MyModel"
   NAME: "Fused_CNN_ResNet50_CLIP_ViT_512_Concat"
   # OUTPUT_DIR: f"output/{_C.MODEL.TYPE}/{_C.MODEL.NAME}" # use value defined in defaults.py
-  MODEL_DIR: "D:/GitHub/Dassl.pytorch/output/cnn_spot/model"
-  MODEL_NAME: "model-best.pth.tar"
+  MODEL_DIR: "/kaggle/input/models/anhphmminh/fused-cnn-resnet50-clip-vit-concat-lf/pytorch/default/1"
+  MODEL_NAME: "model.pth.tar-1"
 
 DATASET:
-  NAME: "ProGAN"
-  DATA_DIR: "D:/GitHub/Dassl.pytorch/dassl/data/datasets/cnn_spot/test/progan"
+  NAME: "CNNSpotTestSet"
+  DATA_DIR: ""
   NUM_CLASSES: 2
 
 DATALOADER:
-  BATCH_SIZE: 32
+  BATCH_SIZE: 128
 
 TRANSFORM:
   TRANSFORMS: ["resize", "to_tensor", "normalize"]
@@ -31,7 +31,7 @@ TRANSFORM:
 
 TRAINER:
   TYPE: 0
-  USE_CUDA: False
+  USE_CUDA: True
   IS_TRAIN: False
   NUM_EPOCHS: 1
   NO_TEST: False # val after epoch and test after train
@@ -42,4 +42,5 @@ TRAINER:
     STEPSIZE: [20]
 
 EVALUATOR:
+  TYPE: 0
   COMPUTE_CONFUSION_MATRIX: False
