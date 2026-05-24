@@ -13,7 +13,7 @@ MODEL:
 
 DATASET:
   NAME: "UniversalTrainingSet"
-  DATA_DIR: ""
+  DATA_DIR: "/kaggle/input/datasets/anhphmminh/universaltrainingset/UniversalTrainingSet"
   NUM_CLASSES: 2
 
 DATALOADER:
@@ -40,7 +40,7 @@ TRAINER:
 
 RoHL:
   STAGE: 1
-  USE_JSD: True
+  USE_JSD: False
 
 EVALUATOR:
   TYPE: 1
