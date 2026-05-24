@@ -1324,7 +1324,7 @@ class RoHLTrainer(AbstractTrainer):
     # keep order of functions inside trainer class
     def forward_backward(self, batch):
         inputs, targets = self.parse_batch_train(batch)
-        if self.cfg.RoHL.USE_JSD and self.mode == "train_augmix":
+        if self.cfg.RoHL.USE_JSD:
             # Compute JSD loss https://github.com/google-research/augmix/blob/master/imagenet.py#L240
             # We employ AugMix data augmentation together with the JSD consistency loss and the default hyperparameters [18].
             # inputs: [clean, aug1, aug2]

@@ -273,6 +273,116 @@ class CNNSpot(MyImageDataset):
 
         return image, label
 
+class UniversalTrainingSet(MyImageDataset):
+    def __init__(self, img_dir, split, transform=None, use_jsd=False):
+        self.use_jsd = use_jsd
+        super().__init__(img_dir, split, transform)
+        if self.use_jsd and self.split == "train":
+            self.aug, self.preprocess = self.transform
+        
+    def read_data_dir(self, split="train"):
+        """
+        img_dir/
+            labelName1/   ← e.g., "0_real"
+                img1.jpg
+                img2.jpg
+            labelName2/   ← e.g., "1_fake"
+                generatorName1/   ← e.g., "biggan"
+                    class_name_1/     ← e.g., "cat"
+                        img3.jpg
+                    class_name_2/
+                generatorName2/
+        """
+        self.img_files = []
+        self.labels = []
+
+        data_dir = osp.join(self.img_dir, split)
+        if split == "train":
+            label_names = listdir_nohidden(data_dir)
+            for label_name in label_names:
+                label_dir = osp.join(data_dir, label_name)
+                label = int(label_name.split("_")[0])
+                if label == 0: # real
+                    imnames = listdir_nohidden(label_dir)
+                    for imname in imnames:
+                        impath = osp.join(label_dir, imname)
+                        self.img_files.append(impath)
+                        self.labels.append(label)
+                else: # fake
+                    generator_names = listdir_nohidden(label_dir)
+                    assert len(generator_names) == 3, f"Expected 3 generators for fake class, but found {len(generator_names)} in {label_dir}"
+
+                    generator_files = []
+
+                    for generator_name in generator_names:
+                        gen_imgs = []
+
+                        generator_dir = osp.join(label_dir, generator_name)
+                        class_names = sorted(listdir_nohidden(generator_dir))
+
+                        for class_name in class_names:
+                            class_dir = osp.join(generator_dir, class_name)
+
+                            imnames = sorted(listdir_nohidden(class_dir))
+
+                            for imname in imnames:
+                                impath = osp.join(class_dir, imname)
+                                gen_imgs.append(impath)
+
+                        generator_files.append(gen_imgs)
+
+                    if self.use_jsd:
+                        # transpose list:
+                        # [
+                        #   [biggan_img1,biggan_img2,...],
+                        #   [stylegan_img1,stylegan_img2,...]
+                        # ]
+                        #
+                        # ->
+                        #
+                        # [
+                        #   (biggan_img1,stylegan_img1),
+                        #   (biggan_img2,stylegan_img2)
+                        # ]
+
+                        for img_tuple in zip(*generator_files):
+                            self.img_files.append(tuple(img_tuple))
+                            self.labels.append(label)
+
+                    else:
+                        for gen_files in generator_files:
+                            for gen_file in gen_files:
+                                self.img_files.append(gen_file)
+                                self.labels.append(label)
+        elif split == "test" or split == "val":
+            # We will use no test or val when training with this dataset
+            pass
+        
+        return
+
+    def __getitem__(self, idx):
+        img_path = self.img_files[idx]
+        label = self.labels[idx]
+        
+        if self.use_jsd and self.split == "train":
+            if label == 1: # fake
+                im_tuple = []
+                for path in img_path:
+                    image = Image.open(path).convert("RGB")
+                    im_tuple.append(self.aug(image))
+            else: # real
+                image = Image.open(img_path).convert("RGB")
+                im_tuple = (self.preprocess(image), self.aug(image), self.aug(image))
+            label = torch.tensor(label, dtype=torch.long)
+            return im_tuple, label
+        
+        image = Image.open(img_path).convert("RGB")
+        label = torch.tensor(label, dtype=torch.long)
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
+
 class CNNSpotTestSet(MyImageDataset):
     def read_data_dir(self, split="test"):
         self.img_files = []
