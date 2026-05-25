@@ -271,8 +271,8 @@ class AveragingModel(MyModel):
             self.model.classifiers[0].state_dict()
         )
 
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, x, return_features=False):
+        return self.model(x, return_features=return_features)
     
     # load_best_model, resume_or_load_checkpoint and save_checkpoint are inherited from MyModel
 
