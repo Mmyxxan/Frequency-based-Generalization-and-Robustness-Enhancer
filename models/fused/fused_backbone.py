@@ -242,7 +242,7 @@ class AveragingModel(Backbone):
                 self.unfreeze_module(self.backbones[idx])
                 self.unfreeze_module(self.classifiers[idx])
 
-    def forward(self, inputs):
+    def forward(self, inputs, return_features=False):
         features = []
         probs = []
 
@@ -296,7 +296,11 @@ class AveragingModel(Backbone):
         final_prob = 0
         for i in range(N):
             final_prob += weights[:, i:i+1] * probs[i]
-
+            
+        # If return_features is True, also return the features for LF (i = 0) backbone (before classifier)
+        if return_features:
+            return final_prob, features[0]
+        
         return final_prob
 
     

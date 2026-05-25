@@ -6,6 +6,7 @@ from collections import Counter
 import torch
 import pandas as pd
 from pathlib import Path
+import random
 
 from utils import listdir_nohidden, logger
 
@@ -281,121 +282,191 @@ class UniversalTrainingSet(MyImageDataset):
             self.aug, self.preprocess = self.transform
         
     def read_data_dir(self, split="train"):
-        """
-        img_dir/
-            0_real/
-                generator1/
-                    img1.jpg
-                    img2.jpg
-                generator2/
-                    ...
 
-            1_fake/
-                generator1/
-                    img1.jpg
-                    img2.jpg
-                generator2/
-                    ...
-                generator3/
-                    ...
-        """
-        self.img_files = []
-        self.labels = []
+        self.img_files=[]
+        self.labels=[]
 
-        data_dir = osp.join(self.img_dir, split)
+        self.fake_generators={}
+        self.real_imgs=[]
 
-        if split == "train":
-            label_names = listdir_nohidden(data_dir)
+        data_dir=osp.join(self.img_dir,split)
 
-            for label_name in label_names:
-                label_dir = osp.join(data_dir, label_name)
-                label = int(label_name.split("_")[0])
+        if split!="train":
+            return
 
-                generator_names = sorted(listdir_nohidden(label_dir))
+        label_names=listdir_nohidden(data_dir)
 
-                if label == 1:
-                    assert len(generator_names) == 3, (
-                        f"Expected 3 generators for fake class, "
-                        f"but found {len(generator_names)} in {label_dir}"
-                    )
+        for label_name in label_names:
 
-                generator_files = []
+            label_dir=osp.join(data_dir,label_name)
+            label=int(label_name.split("_")[0])
+
+            generator_names=sorted(
+                listdir_nohidden(label_dir)
+            )
+
+            if label==0:
 
                 for generator_name in generator_names:
 
-                    generator_dir = osp.join(
+                    generator_dir=osp.join(
                         label_dir,
                         generator_name
                     )
 
-                    imnames = sorted(
+                    for imname in sorted(
                         listdir_nohidden(generator_dir)
-                    )
+                    ):
 
-                    gen_imgs = []
-
-                    for imname in imnames:
-                        impath = osp.join(
-                            generator_dir,
-                            imname
+                        self.real_imgs.append(
+                            osp.join(
+                                generator_dir,
+                                imname
+                            )
                         )
 
-                        gen_imgs.append(impath)
+            else:
 
-                    generator_files.append(gen_imgs)
+                assert len(generator_names)==3
 
-                if self.use_jsd and label == 1:
+                for generator_name in generator_names:
 
-                    # [
-                    #   [gen1_img1, gen1_img2,...],
-                    #   [gen2_img1, gen2_img2,...],
-                    #   [gen3_img1, gen3_img2,...]
-                    # ]
-                    #
-                    # →
-                    #
-                    # [
-                    #   (gen1_img1,gen2_img1,gen3_img1),
-                    #   (gen1_img2,gen2_img2,gen3_img2),
-                    # ]
+                    generator_dir=osp.join(
+                        label_dir,
+                        generator_name
+                    )
 
-                    for img_tuple in zip(*generator_files):
-                        self.img_files.append(img_tuple)
-                        self.labels.append(label)
+                    imgs=[]
 
-                else:
-                    for gen_files in generator_files:
-                        for img_file in gen_files:
-                            self.img_files.append(img_file)
-                            self.labels.append(label)
+                    for imname in sorted(
+                        listdir_nohidden(generator_dir)
+                    ):
+                        imgs.append(
+                            osp.join(
+                                generator_dir,
+                                imname
+                            )
+                        )
 
-        elif split in ["test", "val"]:
-            pass
+                    self.fake_generators[
+                        generator_name
+                    ]=imgs
 
-        return
+        if self.use_jsd:
 
-    def __getitem__(self, idx):
-        img_path = self.img_files[idx]
-        label = self.labels[idx]
-        
-        if self.use_jsd and self.split == "train":
-            if label == 1: # fake
-                im_tuple = []
-                for path in img_path:
-                    image = Image.open(path).convert("RGB")
-                    im_tuple.append(self.aug(image))
-            else: # real
-                image = Image.open(img_path).convert("RGB")
-                im_tuple = (self.preprocess(image), self.aug(image), self.aug(image))
-            label = torch.tensor(label, dtype=torch.long)
-            return im_tuple, label
-        
-        image = Image.open(img_path).convert("RGB")
-        label = torch.tensor(label, dtype=torch.long)
+            self.img_files=(
+                self.real_imgs+
+                [None]*max(
+                    len(v)
+                    for v in self.fake_generators.values()
+                )
+            )
+
+            self.labels=(
+                [0]*len(self.real_imgs)
+                +
+                [1]*(
+                    len(self.img_files)
+                    -len(self.real_imgs)
+                )
+            )
+
+        else:
+
+            for x in self.real_imgs:
+                self.img_files.append(x)
+                self.labels.append(0)
+
+            for imgs in self.fake_generators.values():
+                for x in imgs:
+                    self.img_files.append(x)
+                    self.labels.append(1)
+
+    def __getitem__(self,idx):
+
+        label=self.labels[idx]
+
+        if self.use_jsd:
+
+            if label==1:
+
+                fake_paths=[]
+
+                for gen_name in sorted(
+                    self.fake_generators.keys()
+                ):
+                    fake_paths.append(
+                        random.choice(
+                            self.fake_generators[
+                                gen_name
+                            ]
+                        )
+                    )
+
+                im_tuple=[]
+
+                for p in fake_paths:
+
+                    image=Image.open(
+                        p
+                    ).convert("RGB")
+
+                    im_tuple.append(
+                        self.aug(image)
+                    )
+
+            else:
+
+                img_path=self.real_imgs[
+                    random.randint(
+                        0,
+                        len(self.real_imgs)-1
+                    )
+                ]
+
+                image=Image.open(
+                    img_path
+                ).convert("RGB")
+
+                im_tuple=(
+                    self.preprocess(image),
+                    self.aug(image),
+                    self.aug(image)
+                )
+
+            return (
+                im_tuple,
+                torch.tensor(
+                    label,
+                    dtype=torch.long
+                )
+            )
+
+        img_path=self.img_files[idx]
+
+        image=Image.open(
+            img_path
+        ).convert("RGB")
+
         if self.transform:
-            image = self.transform(image)
+            image=self.transform(image)
 
-        return image, label
+        return (
+            image,
+            torch.tensor(
+                label,
+                dtype=torch.long
+            )
+        )
+        
+    def __len__(self):
+        if self.use_jsd and self.split == "train":
+            return max(
+                len(self.real_imgs),
+                max(len(v) for v in self.fake_generators.values())
+            )
+
+        return len(self.img_files)
 
 class CNNSpotTestSet(MyImageDataset):
     def read_data_dir(self, split="test"):

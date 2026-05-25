@@ -1340,10 +1340,18 @@ class RoHLTrainer(AbstractTrainer):
                 inputs_all.append(xb)
 
             # Forward
-            logits_all = self.model(inputs_all)   # [3B, num_classes]
+            if self.cfg.RoHL.USE_FEATURES_CONSISTENCY:
+                logits_all, features_all = self.model(
+                    inputs_all,
+                    return_features=True
+                )
+            else: 
+                logits_all = self.model(inputs_all)   # [3B, num_classes]
 
             # Split logits
             logits_clean, logits_aug1, logits_aug2 = torch.split(logits_all, B, dim=0)
+            if self.cfg.RoHL.USE_FEATURES_CONSISTENCY:
+                feat_clean, feat_aug1, feat_aug2 = torch.split(features_all, B, dim=0)
 
             # Cross-entropy on clean only
             loss = F.cross_entropy(logits_clean, targets)
@@ -1362,6 +1370,36 @@ class RoHLTrainer(AbstractTrainer):
                 F.kl_div(p_mixture, p_aug1, reduction="batchmean") +
                 F.kl_div(p_mixture, p_aug2, reduction="batchmean")
             ) / 3.0
+            
+            if self.cfg.RoHL.USE_FEATURES_CONSISTENCY:
+
+                feature_loss=(
+
+                    (1-F.cosine_similarity(
+                        feat_clean,
+                        feat_aug1,
+                        dim=1
+                    ).mean())
+
+                    +
+
+                    (1-F.cosine_similarity(
+                        feat_clean,
+                        feat_aug2,
+                        dim=1
+                    ).mean())
+
+                    +
+
+                    (1-F.cosine_similarity(
+                        feat_aug1,
+                        feat_aug2,
+                        dim=1
+                    ).mean())
+
+                )/3
+
+                loss += 0.5*feature_loss
 
         else:
             outputs = self.model(inputs)

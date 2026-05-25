@@ -30,7 +30,7 @@ TRAINER:
   TYPE: 3
   USE_CUDA: True
   IS_TRAIN: True
-  NUM_EPOCHS: 4
+  NUM_EPOCHS: 10
   NO_TEST: True
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
@@ -40,7 +40,8 @@ TRAINER:
 
 RoHL:
   STAGE: 1
-  USE_JSD: False
+  USE_JSD: True
+  USE_FEATURES_CONSISTENCY: True
 
 EVALUATOR:
   TYPE: 1
