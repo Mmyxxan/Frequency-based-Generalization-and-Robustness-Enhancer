@@ -20,6 +20,11 @@ _C.MODEL.BACKBONE.RESNET50_AM_WEIGHTS = ""
 # MyModelUponAveragingModel
 _C.MODEL.MyModelUponAveragingModel = CN()
 _C.MODEL.MyModelUponAveragingModel.PRETRAINED_PATH = ""
+# MyContrastiveModel
+_C.MODEL.MyContrastiveModel = CN()
+_C.MODEL.MyContrastiveModel.CLASSIFIER = "linear" # linear or knn
+_C.MODEL.MyContrastiveModel.KNN_K = 200
+_C.MODEL.MyContrastiveModel.KNN_T = 0.1
 
 # DATASET
 _C.DATASET = CN()
@@ -145,6 +150,13 @@ _C.RoHL.TEST_MODE = "test_fixed" # inference mode, choose to use adaptive weight
 _C.RoHL.STAGE = 0 # stage of creating RoHL model
 _C.RoHL.USE_JSD = False
 _C.RoHL.USE_FEATURES_CONSISTENCY = False
+
+# SupCon
+_C.SupCon = CN()
+_C.SupCon.STAGE = 0 # contrastive learning stage
+_C.SupCon.TEMPERATURE = 0.07
+# Remember to turn _C.RoHL.USE_JSD on if in contrastive learning stage
+# and USE_FEATURES_CONSISTENCY off
 
 # EVALUATOR
 _C.EVALUATOR = CN()

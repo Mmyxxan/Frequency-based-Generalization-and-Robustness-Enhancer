@@ -113,9 +113,11 @@ class MyModel(nn.Module):
         fdim = self.backbone.out_features
         self.classifier = nn.Linear(fdim, cfg.DATASET.NUM_CLASSES)
 
-    def forward(self, x):
+    def forward(self, x, return_features=False):
         f = self.backbone(x)
         y = self.classifier(f)
+        if return_features:
+            return y, f
         return y
     
     def load_best_model(self, directory, epoch=None):
@@ -241,6 +243,35 @@ class MyModel(nn.Module):
             best_fpath = osp.join(osp.dirname(fpath), "model-best.pth.tar")
             shutil.copy(fpath, best_fpath)
             logger.info('Best checkpoint saved to "{}"'.format(best_fpath))
+
+class MyContrastiveModel(MyModel):
+    def __init__(self, cfg, **kwargs):
+        super().__init__(cfg)
+        # Classifier is default to linear
+        # fdim = self.backbone.out_features
+        # self.classifier = nn.Linear(fdim, cfg.DATASET.NUM_CLASSES)
+        # self.knn_classifier = 
+        
+    def set_model_mode(self, mode):
+        # in training, the classifier is not used, model weights are updated by contrastive loss
+        # , in eval, the classifier is used to evaluate linear probe performance
+        assert mode in ["train_contrastive", "train_linear", "train_knn", "test"]
+        self.mode = mode
+        
+    def forward(self, x, return_features=False):
+        if self.mode in ["train_contrastive", "train_knn"]:
+            f = self.backbone(x)
+            y = self.classifier(f)
+            # if return_features:
+            #     return y, f
+            return y, f
+        elif self.mode in ["train_linear", "test"]:
+            f = self.backbone(x)
+            y = self.classifier(f)
+            if return_features:
+                return y, f
+            return y
+        # implement knn inference, a.k.a mode "test_knn"
 
 class AveragingModel(MyModel):
     # Two ResNet50, one trained for high-freq, one trained for low-freq, then average predictions

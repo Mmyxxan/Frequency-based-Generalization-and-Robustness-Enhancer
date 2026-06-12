@@ -28,6 +28,8 @@ from models import Baseline
 from utils import * 
 from utils import logger
 
+from .losses.SupCon import SupConLoss
+
 # Trainer inherits Abstract trainer for different training flows based on cfg.TRAINER.TYPE
 
 class AbstractTrainer:
@@ -1917,6 +1919,583 @@ class NTIRETrainer(AbstractTrainer):
                 "loss": loss.item(),
                 "acc": compute_accuracy(outputs, targets)[0].item(),
             }
+
+        if (self.batch_idx + 1) == self.num_batches:
+            self.update_lr()
+
+        return loss_summary
+
+    def parse_batch_train(self, batch):
+        input = batch[0]
+        label = batch[1]
+
+        # Inspect input shape
+        # logger.debug(input.shape)
+
+        def move_to_device(x, device):
+            if isinstance(x, list):
+                return [move_to_device(y, device) for y in x]
+            return x.to(device)
+
+        if isinstance(input, list):
+            input = [move_to_device(x, self.device) for x in input]
+        else:
+            input = input.to(self.device)
+
+        label = label.to(self.device)
+
+        return input, label
+
+class SupConTrainer(AbstractTrainer):
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+        # Set up device
+        if self.cfg.TRAINER.USE_CUDA:
+            self.device = torch.device("cuda")
+        else:
+            self.device = torch.device("cpu")
+
+        # Build model
+        self.model = build_model(self.cfg)
+        self.model.to(self.device)
+        logger.info(f"Number of params: {count_num_param(self.model, trainable_only=False):,}")
+        logger.info(f"Number of trainable params: {count_num_param(self.model, trainable_only=True):,}")
+        
+        # Detect devices
+        device_count = torch.cuda.device_count()
+        if device_count > 1:
+            logger.info(f"Detected {device_count} GPUs (use nn.DataParallel)")
+            self.model = nn.DataParallel(self.model)
+            
+        if self.cfg.TRAINER.IS_TRAIN:
+            logger.info(f"Training {self.cfg.MODEL.NAME}")
+            # If train, build optimizer and lr_scheduler
+            self.optimizer = build_optimizer(self.model, self.cfg.TRAINER.OPTIM)
+            self.scheduler = build_lr_scheduler(self.optimizer, self.cfg.TRAINER.OPTIM)
+            # If train, build train and val loader
+            # Build different train loaders for contrastive learning and linear evaluation
+            # First, from original transform
+            # Assume that original transforms include "resize", "to_tensor", "normalize" in that order
+            original_transform = build_transform(self.cfg, is_train=True)
+            logger.info("Successfully build original transform!")
+            
+            # Notes:
+            # AugMix pretrained ResNet50 is available
+
+            # Then, build dataloader
+            # In contrastive learning stage, auto use AugMix for better performance
+            # In linear evaluation stage, it depends on what transform is used
+            if self.cfg.SupCon.STAGE == 0: # contrastive
+                self.supConLoss = SupConLoss(temperature=self.cfg.SupCon.TEMPERATURE)
+                augmix_transform = self.build_augmix_transform(original_transform.transforms)
+                self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform))
+                logger.info("Successfully build AugMix train loader!")
+            elif self.cfg.SupCon.STAGE == 1: # linear evaluation
+                linear_transform = self.build_linear_transform(original_transform.transforms)
+                self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=linear_transform)
+                logger.info("Successfully build linear train loader!")
+            elif self.cfg.SupCon.STAGE == 2: # knn evaluation
+                self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=original_transform)
+                logger.info("Successfully build knn train loader!")
+            
+            if not self.cfg.TRAINER.NO_TEST:
+                self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
+                logger.info("Successfully build val loader!")
+            else:
+                logger.info("No test, no need to build val loader!")
+
+        # Build test loader
+        if not self.cfg.TRAINER.NO_TEST:
+            self.test_loader = build_dataloader(self.cfg, is_train=False, split="test")
+            logger.info("Successfully build test loader!")
+        else:
+            logger.info("No test and no visualize fourier of dataset, no need to build test loader!")
+
+        # Build evaluator
+        if not self.cfg.TRAINER.NO_TEST:
+            self.evaluator = build_evaluator(self.cfg)
+            logger.info("Successfully build evaluator!")
+        else:
+            logger.info("No test, no need to build evaluator!")
+
+    def build_augmix_transform(self, original_transform):
+        # LF transform or AugMix?
+        logger.info("Building AugMix transform...")
+        
+        augmix_transform = []
+        
+        for i, tf in enumerate(original_transform):
+            if i == 1:
+                augmix_transform += [transforms.AugMix()] # AM
+            augmix_transform.append(tf)
+        for tf in augmix_transform:
+            logger.info(f"+ {tf}")
+        augmix_transform = transforms.Compose(augmix_transform)
+
+        return augmix_transform
+    
+    def build_linear_transform(self, original_transform):
+        logger.info("Building linear transform...")
+        for tf in original_transform:
+            logger.info(f"+ {tf}")
+        return transforms.Compose(original_transform)
+        
+    def set_model_mode(self, mode):
+        assert mode in ["train_contrastive", "train_linear", "train_knn", "test"]
+        self.mode = mode
+
+        self.get_model().set_model_mode(mode)
+        
+        if "train_" in mode:
+            self.model.train()
+        else:
+            self.model.eval()
+            
+    @torch.no_grad()
+    def build_feature_bank(self):
+        logger.info("Building feature bank...")
+
+        # Already set in set_model_mode
+        # self.model.eval()
+
+        feature_bank = []
+        label_bank = []
+
+        for batch in tqdm(self.train_loader):
+            images, labels = self.parse_batch_test(batch)
+
+            features = self.model(images, return_features=True)
+
+            if isinstance(features, tuple):
+                features = features[1]
+
+            features = F.normalize(features, dim=1)
+
+            feature_bank.append(features)
+            label_bank.append(labels)
+
+        self.feature_bank = torch.cat(feature_bank, dim=0).t().contiguous()
+        self.label_bank = torch.cat(label_bank, dim=0)
+
+        logger.info(
+            f"Feature bank shape: {self.feature_bank.shape}"
+        )
+        
+    @torch.no_grad()
+    def knn_predict(
+        self,
+        feature,
+        feature_bank,
+        feature_labels,
+        classes,
+        knn_k=200,
+        knn_t=0.1
+    ):
+        sim_matrix = torch.mm(feature, feature_bank)
+
+        sim_weight, sim_indices = sim_matrix.topk(
+            k=knn_k,
+            dim=-1
+        )
+
+        sim_labels = feature_labels[sim_indices]
+
+        sim_weight = (sim_weight / knn_t).exp()
+
+        one_hot = torch.zeros(
+            feature.size(0) * knn_k,
+            classes,
+            device=feature.device
+        )
+
+        one_hot.scatter_(
+            1,
+            sim_labels.view(-1, 1),
+            1
+        )
+
+        pred_scores = torch.sum(
+            one_hot.view(
+                feature.size(0),
+                knn_k,
+                classes
+            ) * sim_weight.unsqueeze(-1),
+            dim=1
+        )
+
+        pred_labels = pred_scores.argsort(
+            dim=-1,
+            descending=True
+        )
+
+        return pred_labels
+    
+    @torch.no_grad()
+    def knn_test(self, split="test"):
+
+        # Already set in set_model_mode
+        # self.model.eval()
+
+        total_num = 0
+        total_correct = 0
+        
+        test_loader = self.val_loader if split == "val" else self.test_loader
+
+        for batch in tqdm(test_loader):
+
+            images, targets = self.parse_batch_test(batch)
+
+            features = self.model(
+                images,
+                return_features=True
+            )
+
+            if isinstance(features, tuple):
+                features = features[1]
+
+            features = F.normalize(
+                features,
+                dim=1
+            )
+
+            pred_labels = self.knn_predict(
+                features,
+                self.feature_bank,
+                self.label_bank,
+                classes=self.cfg.DATASET.NUM_CLASSES,
+                knn_k=self.cfg.SupCon.KNN_K,
+                knn_t=self.cfg.SupCon.KNN_T
+            )
+
+            total_correct += (
+                pred_labels[:, 0] == targets
+            ).float().sum().item()
+
+            total_num += targets.size(0)
+
+        return 100.0 * total_correct / total_num
+        
+    def train(self):
+        # Train AM first
+        if self.cfg.SupCon.STAGE == 0:
+            logger.info(f"Phase {self.cfg.SupCon.STAGE} of training: contrastive learning!")
+            self.set_model_mode(mode="train_contrastive")
+            self.before_train()
+            for self.epoch in range(self.start_epoch, self.last_epoch):
+                self.before_epoch()
+                self.run_epoch(mode="train_contrastive")
+                self.after_epoch(mode="train_contrastive") # only one branch of model
+            self.after_train(mode="train_contrastive")
+
+        if self.cfg.SupCon.STAGE == 1:
+            logger.info(f"Phase {self.cfg.SupCon.STAGE} of training: linear evaluation!")
+            self.set_model_mode(mode="train_linear")
+            self.before_train()
+            for self.epoch in range(self.start_epoch, self.last_epoch):
+                self.before_epoch()
+                self.run_epoch(mode="train_linear")
+                self.after_epoch(mode="train_linear") # only one branch of model
+            self.after_train(mode="train_linear")
+            
+        if self.cfg.SupCon.STAGE == 2:
+            logger.info(f"Phase {self.cfg.SupCon.STAGE} of training: knn evaluation!")
+            self.set_model_mode(mode="train_knn")
+            self.before_train()
+            self.build_feature_bank()
+            acc = self.knn_test(split="val")
+            logger.info(f"kNN Val Acc: {acc:.2f}")
+            acc = self.knn_test()
+            logger.info(f"kNN Test Acc: {acc:.2f}")
+            
+    def before_train(self):
+        optimizer = getattr(self, "optimizer", None)
+        scheduler = getattr(self, "scheduler", None)
+
+        # If train, initialize best result
+        self.best_result = -np.inf # best
+        # If train, set up number of epochs by default
+        self.last_epoch = self.cfg.TRAINER.NUM_EPOCHS
+        self.start_epoch = self.model.module.resume_or_load_checkpoint(
+            self.cfg,
+            optimizer,
+            scheduler
+        )
+
+        if self.cfg.TRAINER.IS_TRAIN and self.start_epoch >= self.cfg.TRAINER.NUM_EPOCHS:
+            logger.error(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
+            raise ValueError(f"Start epoch ({self.start_epoch}) is larger or equal to number of epochs ({self.cfg.TRAINER.NUM_EPOCHS})!")
+
+        self.time_start = time.time()
+
+    # keep generic before_epoch function as abstract trainer
+
+    def run_epoch(self, mode):
+        self.set_model_mode(mode)
+        train_loader = self.train_loader
+
+        losses = MetricMeter()
+        batch_time = AverageMeter()
+        data_time = AverageMeter()
+        self.num_batches = len(train_loader)
+
+        end = time.time()
+
+        for self.batch_idx, batch in enumerate(train_loader):
+            data_time.update(time.time() - end)
+            loss_summary = self.forward_backward(batch)
+            batch_time.update(time.time() - end)
+            losses.update(loss_summary)
+
+            meet_freq = (self.batch_idx + 1) % self.cfg.TRAINER.PRINT_FREQ == 0
+            only_few_batches = self.num_batches < self.cfg.TRAINER.PRINT_FREQ
+
+            if meet_freq or only_few_batches:
+                nb_remain = 0
+                nb_remain += self.num_batches - self.batch_idx - 1
+                nb_remain += (
+                    self.last_epoch - self.epoch - 1
+                ) * self.num_batches
+                eta_seconds = batch_time.avg * nb_remain
+                eta = str(datetime.timedelta(seconds=int(eta_seconds)))
+
+                info = []
+                info += [f"epoch [{self.epoch + 1}/{self.last_epoch}]"]
+                info += [f"batch [{self.batch_idx + 1}/{self.num_batches}]"]
+                info += [f"time {batch_time.val:.3f} ({batch_time.avg:.3f})"]
+                info += [f"data {data_time.val:.3f} ({data_time.avg:.3f})"]
+                info += [f"{losses}"]
+                info += [f"lr {self.get_current_lr():.4e}"]
+                info += [f"eta {eta}"]
+                logger.info(" ".join(info))
+
+            end = time.time()
+            
+    def after_epoch(self, mode):
+        last_epoch = (self.epoch + 1) == self.last_epoch
+        do_test = not self.cfg.TRAINER.NO_TEST
+        meet_checkpoint_freq = (
+            (self.epoch + 1) % self.cfg.TRAINER.CHECKPOINT_FREQ == 0
+            if self.cfg.TRAINER.CHECKPOINT_FREQ > 0 else False
+        )
+
+        if do_test and self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
+            curr_result = self.test(split="val", mode=mode)
+            is_best = curr_result > self.best_result
+            if is_best:
+                self.best_result = curr_result
+                self.get_model().save_checkpoint(
+                    cfg=self.cfg,
+                    state={
+                        "state_dict": self.model.state_dict(),
+                        "epoch": self.epoch + 1,
+                        "optimizer": self.optimizer.state_dict(),
+                        "scheduler": self.scheduler.state_dict(),
+                        "val_result": self.best_result
+                    },
+                    is_best=True,
+                )
+
+        if meet_checkpoint_freq or last_epoch:
+            self.get_model().save_checkpoint(
+                cfg=self.cfg,
+                state={
+                    "state_dict": self.model.state_dict(),
+                    "epoch": self.epoch + 1,
+                    "optimizer": self.optimizer.state_dict(),
+                    "scheduler": self.scheduler.state_dict(),
+                    "val_result": None
+                },
+                is_best=False,
+            )
+
+    def after_train(self, mode):
+        logger.info("Finish training!")
+
+        if not self.cfg.TRAINER.NO_TEST:
+            if self.cfg.TRAINER.TEST_FINAL_MODEL == "best_val":
+                logger.info("Deploy the model with the best val performance")
+                self.get_model().load_best_model(f"{self.cfg.MODEL.OUTPUT_DIR}/model")
+            else:
+                logger.info("Deploy the last-epoch model")
+            self.test(mode=mode)
+
+        # Show elapsed time
+        elapsed = round(time.time() - self.time_start)
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+        logger.info(f"Elapsed: {elapsed}")
+    
+    @torch.no_grad()
+    def test(self, mode, split="test"):
+        """A generic testing pipeline."""
+        self.set_model_mode(mode)
+        self.evaluator.reset()
+
+        if split == "test":
+            data_loader = self.test_loader
+        elif split == "val":
+            data_loader = self.val_loader
+
+        logger.info(f"Evaluate on the *{split}* set")
+
+        for batch_idx, batch in enumerate(tqdm(data_loader)):
+            input, label = self.parse_batch_test(batch)
+            output = self.model_inference(input)
+            self.evaluator.process(output, label)
+
+        results = self.evaluator.evaluate()
+
+        # Show elapsed time
+        elapsed = round(time.time() - self.time_start)
+        elapsed = str(datetime.timedelta(seconds=elapsed))
+        logger.info(f"Elapsed: {elapsed}")
+
+        return list(results.values())[0]
+
+    # keep generic parse_batch_test, get_current_lr, update_lr, model_zero_grad, detect_anomaly, model_backward, model_update, model_backward_and_update, inspect_weights functions as abstract trainer
+    
+    # keep order of functions inside trainer class
+    def forward_backward(self, batch):
+        inputs, targets = self.parse_batch_train(batch)
+        if self.mode == "train_contrastive":
+            num_views = len(inputs)          # 3
+            num_backbones = len(inputs[0])   # N
+            B = inputs[0][0].size(0)
+
+            # Build backbone-wise inputs with AugMix concatenated on batch dim
+            inputs_all = []
+            for b in range(num_backbones):
+                xb = torch.cat([inputs[v][b] for v in range(num_views)], dim=0)
+                inputs_all.append(xb)
+
+            # Forward
+            logits_all, features_all = self.model(
+                inputs_all,
+                return_features=True
+            )
+            # Split features
+            feat_clean, feat_aug1, feat_aug2 = torch.split(
+                features_all,
+                B,
+                dim=0
+            )
+            features_supcon = torch.stack(
+                [
+                    F.normalize(feat_clean, dim=1),
+                    F.normalize(feat_aug1, dim=1),
+                    F.normalize(feat_aug2, dim=1),
+                ],
+                dim=1
+            ) # [B,3,D]
+            loss = self.supConLoss(
+                features_supcon,
+                targets
+            )
+        elif self.mode == "train_linear":
+            if self.cfg.RoHL.USE_JSD:
+                # Compute JSD loss https://github.com/google-research/augmix/blob/master/imagenet.py#L240
+                # We employ AugMix data augmentation together with the JSD consistency loss and the default hyperparameters [18].
+                # inputs: [clean, aug1, aug2]
+                # each element is: List[Tensor] (one per backbone)
+                num_views = len(inputs)          # 3
+                num_backbones = len(inputs[0])   # N
+                B = inputs[0][0].size(0)
+
+                # Build backbone-wise inputs with AugMix concatenated on batch dim
+                inputs_all = []
+                for b in range(num_backbones):
+                    xb = torch.cat([inputs[v][b] for v in range(num_views)], dim=0)
+                    inputs_all.append(xb)
+
+                # Forward
+                if self.cfg.RoHL.USE_FEATURES_CONSISTENCY:
+                    logits_all, features_all = self.model(
+                        inputs_all,
+                        return_features=True
+                    )
+                else: 
+                    logits_all = self.model(inputs_all)   # [3B, num_classes]
+
+                # Split logits
+                logits_clean, logits_aug1, logits_aug2 = torch.split(logits_all, B, dim=0)
+                if self.cfg.RoHL.USE_FEATURES_CONSISTENCY:
+                    feat_clean, feat_aug1, feat_aug2 = torch.split(features_all, B, dim=0)
+
+                # Cross-entropy on clean only
+                loss = F.cross_entropy(logits_clean, targets)
+
+                # JSD loss
+                p_clean = F.softmax(logits_clean, dim=1)
+                p_aug1  = F.softmax(logits_aug1, dim=1)
+                p_aug2  = F.softmax(logits_aug2, dim=1)
+
+                p_mixture = torch.clamp(
+                    (p_clean + p_aug1 + p_aug2) / 3.0, 1e-7, 1.0
+                ).log()
+
+                loss += 12 * (
+                    F.kl_div(p_mixture, p_clean, reduction="batchmean") +
+                    F.kl_div(p_mixture, p_aug1, reduction="batchmean") +
+                    F.kl_div(p_mixture, p_aug2, reduction="batchmean")
+                ) / 3.0
+                
+                if self.cfg.RoHL.USE_FEATURES_CONSISTENCY:
+
+                    feature_loss=(
+
+                        (1-F.cosine_similarity(
+                            feat_clean,
+                            feat_aug1,
+                            dim=1
+                        ).mean())
+
+                        +
+
+                        (1-F.cosine_similarity(
+                            feat_clean,
+                            feat_aug2,
+                            dim=1
+                        ).mean())
+
+                        +
+
+                        (1-F.cosine_similarity(
+                            feat_aug1,
+                            feat_aug2,
+                            dim=1
+                        ).mean())
+
+                    )/3
+
+                    loss += 0.5*feature_loss
+
+            else:
+                outputs = self.model(inputs)
+                loss = F.cross_entropy(outputs, targets)
+
+        # Should add Total Variation minimization loss
+
+        self.model_backward_and_update(loss)
+
+        if self.cfg.SupCon.STAGE == 1: 
+            if self.cfg.RoHL.USE_JSD:
+                acc1 = accuracy(logits_clean, targets, topk=(1,))[0].item()
+                loss_summary = {
+                    "loss": loss.item(),
+                    "acc": acc1,
+                }
+            else:
+                loss_summary = {
+                    "loss": loss.item(),
+                    "acc": compute_accuracy(outputs, targets)[0].item(),
+                }
+        elif self.cfg.SupCon.STAGE == 0:
+            loss_summary = {
+                "loss": loss.item(),
+            }
+        elif self.cfg.SupCon.STAGE == 2:
+            # knn does not train so it does not reach here
+            pass
 
         if (self.batch_idx + 1) == self.num_batches:
             self.update_lr()
