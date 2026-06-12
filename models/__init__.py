@@ -372,6 +372,9 @@ def build_model(cfg):
     elif cfg.MODEL.TYPE == "Baseline":
         logger.info(f"Loading baseline...")
         return Baseline(cfg=cfg)
+    elif cfg.MODEL.TYPE == "MyContrastiveModel":
+        logger.info(f"Loading my contrastive model...")
+        return MyContrastiveModel(cfg=cfg)
     else:
         logger.error(f"Unknown model type: {cfg.MODEL.TYPE}")
         raise ValueError(f"Unknown model type: {cfg.MODEL.TYPE}")
