@@ -1,0 +1,52 @@
+# Train ResNet50 by contrastive learning on CNNSpot
+# python main.py --config-file "configs/custom/experiment_23.yaml" --no-tf-test True
+MODEL:
+  TYPE: "MyContrastiveModel"
+  NAME: "CNN_ResNet50"
+  RESUME: False
+  BACKBONE:
+    PRETRAINED: True
+    FREEZE: False
+  MyContrastiveModel: # currently not affect the code
+    CLASSIFIER: "linear"
+    KNN_K: 200
+    KNN_T: 0.1
+
+DATASET:
+  NAME: "CNNSpot"
+  DATA_DIR: "/kaggle/input/cnnspot/cnn_spot"
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 128
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: True
+  INPUT_SIZE: (224, 224)
+  # TEST
+  NO_TRANSFORM_TEST: True
+
+TRAINER:
+  TYPE: 0
+  USE_CUDA: True
+  IS_TRAIN: True
+  NUM_EPOCHS: 3
+  NO_TEST: False # val after epoch and test after train
+  TEST_FINAL_MODEL: "best_val"
+  OPTIM:
+    NAME: "sgd"
+    LR: 0.002
+    STEPSIZE: [20]
+
+RoHL:
+  USE_JSD: True
+  USE_FEATURES_CONSISTENCY: False
+
+SupCon:
+  STAGE: 0
+  TEMPERATURE: 0.07
+
+EVALUATOR:
+  TYPE: 0
+  COMPUTE_CONFUSION_MATRIX: False

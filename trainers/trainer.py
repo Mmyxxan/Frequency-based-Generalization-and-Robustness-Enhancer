@@ -2185,8 +2185,8 @@ class SupConTrainer(AbstractTrainer):
             for self.epoch in range(self.start_epoch, self.last_epoch):
                 self.before_epoch()
                 self.run_epoch(mode="train_contrastive")
-                self.after_epoch(mode="train_contrastive") # only one branch of model
-            self.after_train(mode="train_contrastive")
+                self.after_epoch(mode="test") # only one branch of model
+            self.after_train(mode="test")
 
         if self.cfg.SupCon.STAGE == 1:
             logger.info(f"Phase {self.cfg.SupCon.STAGE} of training: linear evaluation!")
@@ -2195,8 +2195,8 @@ class SupConTrainer(AbstractTrainer):
             for self.epoch in range(self.start_epoch, self.last_epoch):
                 self.before_epoch()
                 self.run_epoch(mode="train_linear")
-                self.after_epoch(mode="train_linear") # only one branch of model
-            self.after_train(mode="train_linear")
+                self.after_epoch(mode="test") # only one branch of model
+            self.after_train(mode="test")
             
         if self.cfg.SupCon.STAGE == 2:
             logger.info(f"Phase {self.cfg.SupCon.STAGE} of training: knn evaluation!")
