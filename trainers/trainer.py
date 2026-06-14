@@ -2355,9 +2355,16 @@ class SupConTrainer(AbstractTrainer):
     # keep generic parse_batch_test, get_current_lr, update_lr, model_zero_grad, detect_anomaly, model_backward, model_update, model_backward_and_update, inspect_weights functions as abstract trainer
     
     # keep order of functions inside trainer class
+    # this is a single model not fused model so its input is not a list of processed tensors by two backbones
+    # we need to fix this
     def forward_backward(self, batch):
         inputs, targets = self.parse_batch_train(batch)
         if self.mode == "train_contrastive":
+            print(type(inputs))
+
+            if isinstance(inputs, list):
+                print("len =", len(inputs))
+                print(type(inputs[0]))
             num_views = len(inputs)          # 3
             num_backbones = len(inputs[0])   # N
             B = inputs[0][0].size(0)
