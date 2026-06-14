@@ -2360,20 +2360,11 @@ class SupConTrainer(AbstractTrainer):
     def forward_backward(self, batch):
         inputs, targets = self.parse_batch_train(batch)
         if self.mode == "train_contrastive":
-            print(type(inputs))
+            num_views = len(inputs)  # 3
 
-            if isinstance(inputs, list):
-                print("len =", len(inputs))
-                print(type(inputs[0]))
-            num_views = len(inputs)          # 3
-            num_backbones = len(inputs[0])   # N
-            B = inputs[0][0].size(0)
+            B = inputs[0].size(0)
 
-            # Build backbone-wise inputs with AugMix concatenated on batch dim
-            inputs_all = []
-            for b in range(num_backbones):
-                xb = torch.cat([inputs[v][b] for v in range(num_views)], dim=0)
-                inputs_all.append(xb)
+            inputs_all = torch.cat(inputs, dim=0)
 
             # Forward
             logits_all, features_all = self.model(
@@ -2404,15 +2395,11 @@ class SupConTrainer(AbstractTrainer):
                 # We employ AugMix data augmentation together with the JSD consistency loss and the default hyperparameters [18].
                 # inputs: [clean, aug1, aug2]
                 # each element is: List[Tensor] (one per backbone)
-                num_views = len(inputs)          # 3
-                num_backbones = len(inputs[0])   # N
-                B = inputs[0][0].size(0)
+                num_views = len(inputs)  # 3
 
-                # Build backbone-wise inputs with AugMix concatenated on batch dim
-                inputs_all = []
-                for b in range(num_backbones):
-                    xb = torch.cat([inputs[v][b] for v in range(num_views)], dim=0)
-                    inputs_all.append(xb)
+                B = inputs[0].size(0)
+
+                inputs_all = torch.cat(inputs, dim=0)
 
                 # Forward
                 if self.cfg.RoHL.USE_FEATURES_CONSISTENCY:
