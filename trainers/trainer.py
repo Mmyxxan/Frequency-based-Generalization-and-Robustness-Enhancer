@@ -2021,17 +2021,35 @@ class SupConTrainer(AbstractTrainer):
 
     def build_augmix_transform(self, original_transform):
         # LF transform or AugMix?
-        logger.info("Building AugMix transform...")
-        
-        augmix_transform = []
-        
-        for i, tf in enumerate(original_transform):
-            if i == 1:
-                augmix_transform += [transforms.AugMix()] # AM
-            augmix_transform.append(tf)
-        for tf in augmix_transform:
-            logger.info(f"+ {tf}")
-        augmix_transform = transforms.Compose(augmix_transform)
+        if self.cfg.RoHL.USE_JSD:
+            logger.info("Building AugMix transform...")
+            
+            augmix_transform = []
+            
+            for i, tf in enumerate(original_transform):
+                if i == 1:
+                    augmix_transform += [transforms.AugMix()] # AM
+                augmix_transform.append(tf)
+            for tf in augmix_transform:
+                logger.info(f"+ {tf}")
+            augmix_transform = transforms.Compose(augmix_transform)
+        else:
+            logger.info("Building augmentation transform...")
+            
+            augmix_transform = []
+            
+            for i, tf in enumerate(original_transform):
+                if i == 1:
+                    augmix_transform += [
+                        transforms.RandomHorizontalFlip(),
+                        transforms.RandomApply([
+                            transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)
+                        ], p=0.8),
+                    ]
+                augmix_transform.append(tf)
+            for tf in augmix_transform:
+                logger.info(f"+ {tf}")
+            augmix_transform = transforms.Compose(augmix_transform)
 
         return augmix_transform
     
@@ -2360,35 +2378,47 @@ class SupConTrainer(AbstractTrainer):
     def forward_backward(self, batch):
         inputs, targets = self.parse_batch_train(batch)
         if self.mode == "train_contrastive":
-            num_views = len(inputs)  # 3
+            if self.cfg.RoHL.USE_JSD:
+                num_views = len(inputs)  # 3
 
-            B = inputs[0].size(0)
+                B = inputs[0].size(0)
 
-            inputs_all = torch.cat(inputs, dim=0)
+                inputs_all = torch.cat(inputs, dim=0)
 
-            # Forward
-            logits_all, features_all = self.model(
-                inputs_all,
-                return_features=True
-            )
-            # Split features
-            feat_clean, feat_aug1, feat_aug2 = torch.split(
-                features_all,
-                B,
-                dim=0
-            )
-            features_supcon = torch.stack(
-                [
-                    F.normalize(feat_clean, dim=1),
-                    F.normalize(feat_aug1, dim=1),
-                    F.normalize(feat_aug2, dim=1),
-                ],
-                dim=1
-            ) # [B,3,D]
+                # Forward
+                logits_all, features_all = self.model(
+                    inputs_all,
+                    return_features=True
+                )
+                # Split features
+                feat_clean, feat_aug1, feat_aug2 = torch.split(
+                    features_all,
+                    B,
+                    dim=0
+                )
+                features_supcon = torch.stack(
+                    [
+                        F.normalize(feat_clean, dim=1),
+                        F.normalize(feat_aug1, dim=1),
+                        F.normalize(feat_aug2, dim=1),
+                    ],
+                    dim=1
+                ) # [B,3,D]
+            else:
+                _, features = self.model(
+                    inputs,
+                    return_features=True
+                )
+
+                features_supcon = F.normalize(
+                    features,
+                    dim=1
+                ).unsqueeze(1)     # [B,1,D]
+                
             loss = self.supConLoss(
-                features_supcon,
-                targets
-            )
+                    features_supcon,
+                    targets
+                )
         elif self.mode == "train_linear":
             if self.cfg.RoHL.USE_JSD:
                 # Compute JSD loss https://github.com/google-research/augmix/blob/master/imagenet.py#L240

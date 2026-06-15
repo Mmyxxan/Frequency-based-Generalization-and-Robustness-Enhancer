@@ -35,7 +35,7 @@ TRAINER:
   USE_CUDA: True
   IS_TRAIN: True
   NUM_EPOCHS: 2
-  NO_TEST: False # val after epoch and test after train
+  NO_TEST: True # val after epoch and test after train
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
     NAME: "sgd"
@@ -43,7 +43,7 @@ TRAINER:
     STEPSIZE: [20]
 
 RoHL:
-  USE_JSD: True
+  USE_JSD: False
   USE_FEATURES_CONSISTENCY: False
 
 SupCon:
