@@ -1989,7 +1989,10 @@ class SupConTrainer(AbstractTrainer):
             if self.cfg.SupCon.STAGE == 0: # contrastive
                 self.supConLoss = SupConLoss(temperature=self.cfg.SupCon.TEMPERATURE)
                 augmix_transform = self.build_augmix_transform(original_transform.transforms)
-                self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform))
+                if self.cfg.RoHL.USE_JSD:
+                    self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform))
+                else:
+                    self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=augmix_transform)
                 logger.info("Successfully build AugMix train loader!")
             elif self.cfg.SupCon.STAGE == 1: # linear evaluation
                 linear_transform = self.build_linear_transform(original_transform.transforms)
