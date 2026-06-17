@@ -2058,9 +2058,18 @@ class SupConTrainer(AbstractTrainer):
     
     def build_linear_transform(self, original_transform):
         logger.info("Building linear transform...")
-        for tf in original_transform:
+        
+        linear_transform = []
+        
+        for i, tf in enumerate(original_transform):
+            if i == 1:
+                linear_transform += [transforms.RandomApply([transforms.ColorJitter(contrast=0.4)], p=0.8)]
+            linear_transform.append(tf)
+                
+        for tf in linear_transform:
             logger.info(f"+ {tf}")
-        return transforms.Compose(original_transform)
+        
+        return transforms.Compose(linear_transform)
         
     def set_model_mode(self, mode):
         assert mode in ["train_contrastive", "train_linear", "train_knn", "test"]

@@ -3,10 +3,12 @@
 MODEL:
   TYPE: "MyContrastiveModel"
   NAME: "CNN_ResNet50"
-  RESUME: False
+  MODEL_DIR: "/kaggle/input/models/anhphmminh/supcon-phase-0-contrastive-learning/pytorch/default/1"
+  MODEL_NAME: "model.pth.tar-2"
+  RESUME: True
   BACKBONE:
-    PRETRAINED: True
-    FREEZE: False
+    PRETRAINED: False
+    FREEZE: True
   MyContrastiveModel: # currently not affect the code
     CLASSIFIER: "linear"
     KNN_K: 200
@@ -34,8 +36,8 @@ TRAINER:
   TYPE: 5
   USE_CUDA: True
   IS_TRAIN: True
-  NUM_EPOCHS: 2
-  NO_TEST: True # val after epoch and test after train
+  NUM_EPOCHS: 3
+  NO_TEST: False # val after epoch and test after train
   TEST_FINAL_MODEL: "best_val"
   OPTIM:
     NAME: "sgd"
@@ -47,7 +49,7 @@ RoHL:
   USE_FEATURES_CONSISTENCY: False
 
 SupCon:
-  STAGE: 0
+  STAGE: 1
   TEMPERATURE: 0.07
 
 EVALUATOR:
