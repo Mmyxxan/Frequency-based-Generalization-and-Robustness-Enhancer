@@ -1,7 +1,6 @@
 # Train CLIP ViT by contrastive learning on ReconstructedFakeRealDataset
-# We should create experiment_25.yaml to train linear classifier, and experiment_26.yaml to test
-# Create configs for CLIP because it differs
-# python main.py --config-file "configs/custom/experiment_24.yaml" --no-tf-test True --data-dir
+# We should create experiment_28.yaml to train linear classifier, and experiment_29.yaml to test
+# python main.py --config-file "configs/custom/experiment_27.yaml" --no-tf-test True --data-dir
 MODEL:
   TYPE: "MyContrastiveModel"
   NAME: "CLIP_ViT"
