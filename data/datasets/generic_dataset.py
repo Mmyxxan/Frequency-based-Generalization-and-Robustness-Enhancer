@@ -468,6 +468,80 @@ class UniversalTrainingSet(MyImageDataset):
 
         return len(self.img_files)
 
+class ReconstructedFakeRealDataset(MyImageDataset):
+    def __init__(self, img_dir, split, transform=None, use_jsd=False):
+        self.use_jsd = use_jsd
+        super().__init__(img_dir, split, transform)
+        if self.use_jsd and self.split == "train":
+            self.aug, self.preprocess = self.transform
+
+    def read_data_dir(self, split="train"):
+        # This dataset reconstructs and edits the ProGAN (train+val) dataset
+        img_files = []
+        labels = []
+
+        # directories to scan
+        roots = [osp.join(self.img_dir, "inversion", split)]
+
+        for edit_type in self.cfg.DATASET.RECONSTRUCTED_FAKE_REAL_DATASET.EDIT_TYPES:
+            roots.append(osp.join(self.img_dir, edit_type, split))
+
+        for root_dir in roots:
+            if not osp.exists(root_dir):
+                continue
+
+            for root, _, files in os.walk(root_dir):
+                for file in files:
+                    if not file.lower().endswith((".jpg", ".jpeg", ".png")):
+                        continue
+
+                    impath = osp.join(root, file)
+
+                    # Find nearest ancestor named like "0_real", "1_fake", ...
+                    label = None
+                    current = osp.dirname(impath)
+
+                    while True:
+                        dirname = osp.basename(current)
+
+                        if "_" in dirname:
+                            prefix = dirname.split("_", 1)[0]
+                            if prefix.isdigit():
+                                label = int(prefix)
+                                break
+
+                        if osp.abspath(current) == osp.abspath(root_dir):
+                            break
+
+                        parent = osp.dirname(current)
+                        if parent == current:
+                            break
+                        current = parent
+
+                    if label is None:
+                        continue
+
+                    img_files.append(impath)
+                    labels.append(label)
+
+        self.img_files = img_files
+        self.labels = labels
+        
+    def __getitem__(self,idx):
+        img_path = self.img_files[idx]
+        image = Image.open(img_path).convert("RGB")
+        label = self.labels[idx]
+        label = torch.tensor(label, dtype=torch.long)
+
+        if self.use_jsd and self.split == "train":
+            im_tuple = (self.preprocess(image), self.aug(image), self.aug(image))
+            return im_tuple, label
+        
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
+        
 class CNNSpotTestSet(MyImageDataset):
     def read_data_dir(self, split="test"):
         self.img_files = []

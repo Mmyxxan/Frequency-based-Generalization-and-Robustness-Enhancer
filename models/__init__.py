@@ -48,6 +48,8 @@ def build_backbone(cfg):
                              freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
     elif cfg.MODEL.NAME == "CNN_ResNet50":
         return ResNet50(freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
+    elif cfg.MODEL.NAME == "CLIP_ViT":
+        return CLIPViT(freeze=cfg.MODEL.BACKBONE.FREEZE, pretrained=cfg.MODEL.BACKBONE.PRETRAINED)
     else:
         logger.error(f"Unknown model name: {cfg.MODEL.NAME}")
         raise ValueError(f"Unknown model name: {cfg.MODEL.NAME}")

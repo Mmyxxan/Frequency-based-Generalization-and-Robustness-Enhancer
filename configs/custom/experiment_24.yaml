@@ -1,0 +1,59 @@
+# Train ResNet50 by contrastive learning on ReconstructedFakeRealDataset
+# We should create experiment_25.yaml to train linear classifier, and experiment_26.yaml to test
+# Create configs for CLIP because it differs
+# python main.py --config-file "configs/custom/experiment_24.yaml" --no-tf-test True --data-dir
+MODEL:
+  TYPE: "MyContrastiveModel"
+  NAME: "CNN_ResNet50"
+  MODEL_DIR: ""
+  MODEL_NAME: ""
+  RESUME: False
+  BACKBONE:
+    PRETRAINED: True
+    FREEZE: False
+  MyContrastiveModel: # currently not affect the code
+    CLASSIFIER: "linear"
+    KNN_K: 200
+    KNN_T: 0.1
+
+DATASET:
+  NAME: "ReconstructedFakeRealDataset"
+  DATA_DIR: ""
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 128
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: False
+  INTERPOLATION_MODE: "bilinear"
+  INPUT_SIZE: (224, 224)
+  INPUT_MEAN: [0.485, 0.456, 0.406]
+  INPUT_STD: [0.229, 0.224, 0.225]
+  # TEST
+  NO_TRANSFORM_TEST: True
+
+TRAINER:
+  TYPE: 5
+  USE_CUDA: True
+  IS_TRAIN: True
+  NUM_EPOCHS: 2
+  NO_TEST: False # val after epoch and test after train
+  TEST_FINAL_MODEL: "best_val"
+  OPTIM:
+    NAME: "sgd"
+    LR: 0.002
+    STEPSIZE: [20]
+
+RoHL:
+  USE_JSD: False
+  USE_FEATURES_CONSISTENCY: False
+
+SupCon:
+  STAGE: 0
+  TEMPERATURE: 0.07
+
+EVALUATOR:
+  TYPE: 0
+  COMPUTE_CONFUSION_MATRIX: False
