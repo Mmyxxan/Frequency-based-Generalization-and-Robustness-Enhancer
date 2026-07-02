@@ -30,7 +30,7 @@ def build_dataset(cfg, is_train, split, is_visualize=False, transform=None):
     elif cfg.DATASET.NAME == "UniversalTrainingSet":
         return UniversalTrainingSet(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform, use_jsd=cfg.RoHL.USE_JSD)
     elif cfg.DATASET.NAME == "ReconstructedFakeRealDataset":
-        return ReconstructedFakeRealDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform, use_jsd=cfg.RoHL.USE_JSD)
+        return ReconstructedFakeRealDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform, use_jsd=cfg.RoHL.USE_JSD, edit_types=cfg.DATASET.RECONSTRUCTED_FAKE_REAL_DATASET.EDIT_TYPES)
     else:
         return MyImageDataset(img_dir=cfg.DATASET.DATA_DIR, split=split, transform=transform)
 

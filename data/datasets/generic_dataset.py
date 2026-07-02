@@ -469,11 +469,13 @@ class UniversalTrainingSet(MyImageDataset):
         return len(self.img_files)
 
 class ReconstructedFakeRealDataset(MyImageDataset):
-    def __init__(self, img_dir, split, transform=None, use_jsd=False):
+    def __init__(self, img_dir, split, transform=None, use_jsd=False, edit_types=["inversion"]):
         self.use_jsd = use_jsd
         super().__init__(img_dir, split, transform)
         if self.use_jsd and self.split == "train":
             self.aug, self.preprocess = self.transform
+            
+        self.edit_types = edit_types
 
     def read_data_dir(self, split="train"):
         # This dataset reconstructs and edits the ProGAN (train+val) dataset
@@ -483,7 +485,7 @@ class ReconstructedFakeRealDataset(MyImageDataset):
         # directories to scan
         roots = [osp.join(self.img_dir, "inversion", split)]
 
-        for edit_type in self.cfg.DATASET.RECONSTRUCTED_FAKE_REAL_DATASET.EDIT_TYPES:
+        for edit_type in self.edit_types:
             roots.append(osp.join(self.img_dir, edit_type, split))
 
         for root_dir in roots:
