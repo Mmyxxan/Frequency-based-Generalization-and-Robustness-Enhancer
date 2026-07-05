@@ -33,7 +33,7 @@ _C.DATASET.DATA_DIR = "" # e.g., cnnspot/test/progan, cnnspot/train
 _C.DATASET.NUM_CLASSES = 2 # for classifier to know about the dataset
 
 _C.DATASET.RECONSTRUCTED_FAKE_REAL_DATASET = CN()
-_C.DATASET.RECONSTRUCTED_FAKE_REAL_DATASET.EDIT_TYPES = ["inversion", "styleclip_global_face with hair_face with fire hair_0.10"]
+_C.DATASET.RECONSTRUCTED_FAKE_REAL_DATASET.EDIT_TYPES = ["inversion"]
 
 # DATALOADER
 _C.DATALOADER = CN()
