@@ -1,6 +1,9 @@
 from torch.utils.data import DataLoader
 from torch.utils.data import IterableDataset
 from datasets import load_dataset
+from torch.utils.data import WeightedRandomSampler
+from collections import Counter
+import torch
 
 from .datasets.generic_dataset import *
 from .datasets.hugging_face_dataset import HuggingFaceIterableDataset
@@ -37,6 +40,45 @@ def build_dataset(cfg, is_train, split, is_visualize=False, transform=None):
 def build_dataloader(cfg, is_train, split, is_visualize=False, transform=None):
     dataset = build_dataset(cfg=cfg, is_train=is_train, split=split, is_visualize=is_visualize, transform=transform)
     is_iterable = isinstance(dataset, IterableDataset)
+    
+    # WeightedRandomSampler for imbalanced dataset
+    labels = dataset.labels
+
+    class_count = Counter(labels)
+    print(class_count)
+
+    # inverse frequency
+    class_weights = {
+        c: 1.0 / n
+        for c, n in class_count.items()
+    }
+
+    sample_weights = torch.DoubleTensor(
+        [class_weights[l] for l in labels]
+    )
+
+    sampler = WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True
+    )
+
+    if is_train and not is_iterable:
+        sampler = WeightedRandomSampler(
+            sample_weights,
+            len(sample_weights),
+            replacement=True
+        )
+
+        return DataLoader(
+            dataset,
+            batch_size=cfg.DATALOADER.BATCH_SIZE,
+            sampler=sampler,
+            shuffle=False,      # sampler and shuffle cannot coexist
+            num_workers=cfg.DATALOADER.NUM_WORKERS,
+            drop_last=len(dataset) >= cfg.DATALOADER.BATCH_SIZE,
+            pin_memory=cfg.TRAINER.USE_CUDA,
+        )
 
     return DataLoader(
         dataset,
