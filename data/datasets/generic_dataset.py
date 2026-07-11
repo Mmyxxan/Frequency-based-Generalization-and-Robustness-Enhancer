@@ -11,7 +11,7 @@ import random
 from utils import listdir_nohidden, logger
 
 kaggle_root_dir = {
-    "CNNSpotTest": "/kaggle/input/cnnspot/cnn_spot/test",
+    "CNNSpotTest": "/workspace/cnn_spot/test",
     "CLIPpingEval": "/kaggle/input/clipping-eval/deepfake_eval",
 }
 
