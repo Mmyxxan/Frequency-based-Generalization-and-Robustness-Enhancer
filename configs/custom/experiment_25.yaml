@@ -1,0 +1,32 @@
+# Test CNN_ResNet_50 contrastive learning + linear classifier trained on ReconstructedFakeRealDataset (cnn_spot_augmented) on CNNSpotTestSet
+# python main.py --config-file "configs/custom/experiment_25.yaml" --eval-only
+MODEL:
+  TYPE: "MyContrastiveModel"
+  NAME: "CNN_ResNet50"
+  MODEL_DIR: "/workspace/Frequency-based-Generalization-and-Robustness-Enhancer/output/MyContrastiveModel/CNN_ResNet50/model"
+  MODEL_NAME: "model.pth.tar-3"
+
+DATASET:
+  NAME: "CNNSpotTestSet"
+  DATA_DIR: ""
+  NUM_CLASSES: 2
+
+DATALOADER:
+  BATCH_SIZE: 128
+
+TRANSFORM:
+  TRANSFORMS: ["resize", "to_tensor", "normalize"]
+  NORMALIZE_BACKBONE: False
+  INPUT_SIZE: (224, 224)
+  # TEST
+  NO_TRANSFORM_TEST: True
+
+TRAINER:
+  TYPE: 5
+  USE_CUDA: True
+  IS_TRAIN: False
+  NO_TEST: False # val after epoch and test after train
+
+EVALUATOR:
+  TYPE: 0
+  COMPUTE_CONFUSION_MATRIX: False
