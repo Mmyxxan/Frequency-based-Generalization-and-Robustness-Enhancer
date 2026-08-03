@@ -1306,12 +1306,58 @@ class RoHLTrainer(AbstractTrainer):
             data_loader = self.val_loader
 
         logger.info(f"Evaluate on the *{split}* set")
+        
+        import csv
+        
+        save_dir = os.path.join(self.cfg.MODEL.OUTPUT_DIR, "analysis")
+        os.makedirs(save_dir, exist_ok=True)
+        dataset_name = self.cfg.DATASET.DATA_DIRs
+        
+        meta_path = os.path.join(save_dir, f"{dataset_name}_{mode}_meta.csv")
+        feat_path = os.path.join(save_dir, f"{dataset_name}_{mode}_features.npy")
+        
+        num_samples = len(data_loader.dataset)
+        feature_dim = 2048
+        
+        feature_memmap = np.lib.format.open_memmap(
+            feat_path,
+            mode="w+",
+            dtype=np.float32,
+            shape=(num_samples, feature_dim),
+        )
+        
+        csv_file = open(meta_path, "w", newline="")
+        writer = csv.writer(csv_file)
+        writer.writerow(["index", "label", "pred"])
+        
+        offset = 0
 
         for batch_idx, batch in enumerate(tqdm(data_loader)):
             input, label = self.parse_batch_test(batch)
-            output = self.model_inference(input)
+            output, feat = self.model_inference(
+                input,
+                return_features=True
+            )
+            
+            B = label.size(0)
+
+            feature_memmap[offset:offset+B] = feat.cpu().numpy()
+
+            pred = output[:, 1].cpu().numpy()   # adjust according to your output
+
+            for i in range(B):
+                writer.writerow([
+                    offset + i,
+                    int(label[i]),
+                    float(pred[i]),
+                ])
+
+            offset += B
             self.evaluator.process(output, label)
 
+        csv_file.close()
+        feature_memmap.flush()
+        
         results = self.evaluator.evaluate()
 
         # Show elapsed time

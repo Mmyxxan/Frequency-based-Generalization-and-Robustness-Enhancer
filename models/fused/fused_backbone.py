@@ -303,7 +303,7 @@ class AveragingModel(Backbone):
                 idx = int(self.mode.split("_")[1])
                 return final_prob, features[idx]
 
-            elif self.mode == "test_adaptive":
+            elif self.mode == "test_fixed":
                 return final_prob, concat_features
         
         return final_prob
