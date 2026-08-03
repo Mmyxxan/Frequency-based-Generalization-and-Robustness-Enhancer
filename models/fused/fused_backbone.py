@@ -299,7 +299,12 @@ class AveragingModel(Backbone):
             
         # If return_features is True, also return the features for LF (i = 0) backbone (before classifier)
         if return_features:
-            return final_prob, features[0]
+            if self.mode == "test_0" or self.mode == "test_1":
+                idx = int(self.mode.split("_")[1])
+                return final_prob, features[idx]
+
+            elif self.mode == "test_adaptive":
+                return final_prob, concat_features
         
         return final_prob
 
