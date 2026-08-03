@@ -1398,6 +1398,9 @@ class RoHLTrainer(AbstractTrainer):
 
     # keep generic parse_batch_test, get_current_lr, update_lr, model_zero_grad, detect_anomaly, model_backward, model_update, model_backward_and_update, inspect_weights functions as abstract trainer
     
+    def model_inference(self, input):
+        return self.model(input, return_features=True)
+    
     # keep order of functions inside trainer class
     def forward_backward(self, batch):
         inputs, targets = self.parse_batch_train(batch)
