@@ -1311,7 +1311,7 @@ class RoHLTrainer(AbstractTrainer):
         
         save_dir = os.path.join(self.cfg.MODEL.OUTPUT_DIR, "analysis")
         os.makedirs(save_dir, exist_ok=True)
-        dataset_name = self.cfg.DATASET.DATA_DIRs
+        dataset_name = self.cfg.DATASET.DATA_DIR
         
         meta_path = os.path.join(save_dir, f"{dataset_name}_{mode}_meta.csv")
         feat_path = os.path.join(save_dir, f"{dataset_name}_{mode}_features.npy")
@@ -1319,12 +1319,21 @@ class RoHLTrainer(AbstractTrainer):
         num_samples = len(data_loader.dataset)
         feature_dim = 2048
         
+        logger.info(f"Dumping analysis results...")
+        logger.info(f"Dataset      : {dataset_name}")
+        logger.info(f"Mode         : {mode}")
+        logger.info(f"#Samples     : {num_samples}")
+        logger.info(f"Feature dim  : {feature_dim}")
+        logger.info(f"Meta file    : {meta_path}")
+        logger.info(f"Feature file : {feat_path}")
+        
         feature_memmap = np.lib.format.open_memmap(
             feat_path,
             mode="w+",
             dtype=np.float32,
             shape=(num_samples, feature_dim),
         )
+        logger.info("Feature memmap created.")
         
         csv_file = open(meta_path, "w", newline="")
         writer = csv.writer(csv_file)
@@ -1332,12 +1341,18 @@ class RoHLTrainer(AbstractTrainer):
         
         offset = 0
 
+        logger.info("Starting inference and dumping...")
         for batch_idx, batch in enumerate(tqdm(data_loader)):
             input, label = self.parse_batch_test(batch)
             output, feat = self.model_inference(
                 input,
                 return_features=True
             )
+            
+            if batch_idx == 0:
+                logger.info(f"Output shape  : {tuple(output.shape)}")
+                logger.info(f"Feature shape : {tuple(feat.shape)}")
+                logger.info(f"Feature dtype : {feat.dtype}")
             
             B = label.size(0)
 
@@ -1353,10 +1368,24 @@ class RoHLTrainer(AbstractTrainer):
                 ])
 
             offset += B
+            
+            if (batch_idx + 1) % 50 == 0 or (batch_idx + 1) == len(data_loader):
+                logger.info(
+                    f"Processed batch {batch_idx+1}/{len(data_loader)} "
+                    f"({offset}/{num_samples} samples)"
+                )
+            
             self.evaluator.process(output, label)
 
-        csv_file.close()
+        logger.info("Finished inference.")
+
+        logger.info("Flushing feature memmap to disk...")
         feature_memmap.flush()
+
+        logger.info("Closing metadata CSV...")
+        csv_file.close()
+
+        logger.info("Analysis dump completed successfully.")
         
         results = self.evaluator.evaluate()
 
