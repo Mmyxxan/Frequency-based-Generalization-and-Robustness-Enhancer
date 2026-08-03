@@ -1317,7 +1317,7 @@ class RoHLTrainer(AbstractTrainer):
         feat_path = os.path.join(save_dir, f"{dataset_name}_{mode}_features.npy")
         
         num_samples = len(data_loader.dataset)
-        feature_dim = 2048
+        feature_dim = 4096
         
         logger.info(f"Dumping analysis results...")
         logger.info(f"Dataset      : {dataset_name}")
