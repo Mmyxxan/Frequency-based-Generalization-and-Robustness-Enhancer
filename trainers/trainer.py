@@ -1318,6 +1318,7 @@ class RoHLTrainer(AbstractTrainer):
         
         num_samples = len(data_loader.dataset)
         feature_dim = 4096
+        feature_dim = 2048
         
         logger.info(f"Dumping analysis results...")
         logger.info(f"Dataset      : {dataset_name}")
