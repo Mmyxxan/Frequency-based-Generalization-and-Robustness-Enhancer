@@ -203,24 +203,46 @@ class MyModel(nn.Module):
         # ------------------------------------------------------------------
 
         if "CLIP" in cfg.MODEL.NAME:
+            
+            if "Fused" in cfg.MODEL.NAME:
 
-            fixed_state_dict = {}
+                fixed_state_dict = {}
 
-            for k, v in state_dict.items():
+                for k, v in state_dict.items():
 
-                if (
-                    "backbone.backbones.1.model." in k
-                    and "vision_model." not in k
-                ):
-                    new_key = k.replace(
-                        "backbone.backbones.1.model.",
-                        "backbone.backbones.1.model.vision_model."
-                    )
-                    fixed_state_dict[new_key] = v
-                else:
-                    fixed_state_dict[k] = v
+                    if (
+                        "backbone.backbones.1.model." in k
+                        and "vision_model." not in k
+                    ):
+                        new_key = k.replace(
+                            "backbone.backbones.1.model.",
+                            "backbone.backbones.1.model.vision_model."
+                        )
+                        fixed_state_dict[new_key] = v
+                    else:
+                        fixed_state_dict[k] = v
 
-            state_dict = fixed_state_dict
+                state_dict = fixed_state_dict
+                
+            else:
+                
+                fixed_state_dict = {}
+                
+                for k, v in state_dict.items():
+
+                    if (
+                        "backbone.model." in k
+                        and "vision_model." not in k
+                    ):
+                        new_key = k.replace(
+                            "backbone.model.",
+                            "backbone.model.vision_model."
+                        )
+                        fixed_state_dict[new_key] = v
+                    else:
+                        fixed_state_dict[k] = v
+
+                state_dict = fixed_state_dict
 
         if val_result:
             logger.info(f"Load {fpath} to {cfg.MODEL.TYPE}/{cfg.MODEL.NAME} (epoch={epoch}, val_result={val_result:.1f})")
