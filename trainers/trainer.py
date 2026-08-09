@@ -1080,21 +1080,118 @@ class RoHLTrainer(AbstractTrainer):
         low_freq_transform = transforms.Compose(low_freq_transform)
 
         # Build actual mixed transform
-        # logger.info("MIXED TRANSFORM...")
-        # transform = []
-        # for i, tf in enumerate(original_transform):
-        #     if i == 1:
-        #         gb_k, gb_p, gb_sigma = self.cfg.TRANSFORM.GB_K, self.cfg.TRANSFORM.GB_P, self.cfg.TRANSFORM.GB_SIGMA
-        #         transform += [transforms.RandomApply([transforms.GaussianBlur(gb_k, gb_sigma)], p=gb_p)]
+        logger.info("MIXED TRANSFORM...")
 
-        #         jpeg_p, jpeg_quality = self.cfg.TRANSFORM.JPEG_P, self.cfg.TRANSFORM.JPEG_QUALITY
-        #         transform += [transforms.RandomApply([v2.JPEG(quality=jpeg_quality)], p=jpeg_p)]
-        #     transform.append(tf)
-        # for tf in transform:
-        #     logger.info(f"+ {tf}")
-        # transform = transforms.Compose(transform)
+        transform = []
 
-        return high_freq_transform, low_freq_transform, augmix_transform
+        for i, tf in enumerate(original_transform):
+
+            if i == 1:
+
+                # ============================================================
+                # SPATIAL AUGMENTATION
+                # ============================================================
+
+                # Random horizontal flip
+                transform.append(
+                    transforms.RandomHorizontalFlip(p=0.5)
+                )
+
+                # Small random rotation
+                transform.append(
+                    transforms.RandomRotation(
+                        degrees=5,
+                        interpolation=transforms.InterpolationMode.BILINEAR
+                    )
+                )
+
+                # ============================================================
+                # LF AUGMENTATION
+                # Brightness
+                # ============================================================
+
+                brightness = self.cfg.TRANSFORM.BRIGHTNESS
+                brightness_p = self.cfg.TRANSFORM.BRIGHTNESS_P
+
+                transform.append(
+                    transforms.RandomApply(
+                        [
+                            transforms.ColorJitter(
+                                brightness=brightness
+                            )
+                        ],
+                        p=brightness_p
+                    )
+                )
+
+                # ============================================================
+                # LF AUGMENTATION
+                # Contrast
+                # ============================================================
+
+                contrast = self.cfg.TRANSFORM.CONTRAST
+                contrast_p = self.cfg.TRANSFORM.CONTRAST_P
+
+                transform.append(
+                    transforms.RandomApply(
+                        [
+                            transforms.ColorJitter(
+                                contrast=contrast
+                            )
+                        ],
+                        p=contrast_p
+                    )
+                )
+
+                # ============================================================
+                # HF AUGMENTATION
+                # Gaussian Blur
+                # ============================================================
+
+                gb_p = self.cfg.TRANSFORM.GB_P
+                gb_k = self.cfg.TRANSFORM.GB_K
+                gb_sigma = self.cfg.TRANSFORM.GB_SIGMA
+
+                transform.append(
+                    transforms.RandomApply(
+                        [
+                            transforms.GaussianBlur(
+                                kernel_size=gb_k,
+                                sigma=gb_sigma
+                            )
+                        ],
+                        p=gb_p
+                    )
+                )
+
+                # ============================================================
+                # HF AUGMENTATION
+                # JPEG Compression
+                # ============================================================
+
+                jpeg_p = self.cfg.TRANSFORM.JPEG_P
+                jpeg_quality = self.cfg.TRANSFORM.JPEG_QUALITY
+
+                transform.append(
+                    transforms.RandomApply(
+                        [
+                            v2.JPEG(
+                                quality=jpeg_quality
+                            )
+                        ],
+                        p=jpeg_p
+                    )
+                )
+
+            transform.append(tf)
+
+
+        for tf in transform:
+            logger.info(f"+ {tf}")
+
+        transform = transforms.Compose(transform)
+
+        return high_freq_transform, low_freq_transform, augmix_transform, transform
         
     def set_model_mode(self, mode):
         # There should be more model modes than train, val, test
@@ -1307,86 +1404,90 @@ class RoHLTrainer(AbstractTrainer):
 
         logger.info(f"Evaluate on the *{split}* set")
         
-        import csv
+        # import csv
         
-        save_dir = os.path.join(self.cfg.MODEL.OUTPUT_DIR, "analysis")
-        os.makedirs(save_dir, exist_ok=True)
-        dataset_name = self.cfg.DATASET.DATA_DIR
+        # save_dir = os.path.join(self.cfg.MODEL.OUTPUT_DIR, "analysis")
+        # os.makedirs(save_dir, exist_ok=True)
+        # dataset_name = self.cfg.DATASET.DATA_DIR
         
-        meta_path = os.path.join(save_dir, f"{dataset_name}_{mode}_meta.csv")
-        feat_path = os.path.join(save_dir, f"{dataset_name}_{mode}_features.npy")
+        # meta_path = os.path.join(save_dir, f"{dataset_name}_{mode}_meta.csv")
+        # feat_path = os.path.join(save_dir, f"{dataset_name}_{mode}_features.npy")
         
-        num_samples = len(data_loader.dataset)
-        feature_dim = 4096
-        feature_dim = 2048
+        # num_samples = len(data_loader.dataset)
+        # feature_dim = 4096
+        # feature_dim = 2048
         
-        logger.info(f"Dumping analysis results...")
-        logger.info(f"Dataset      : {dataset_name}")
-        logger.info(f"Mode         : {mode}")
-        logger.info(f"#Samples     : {num_samples}")
-        logger.info(f"Feature dim  : {feature_dim}")
-        logger.info(f"Meta file    : {meta_path}")
-        logger.info(f"Feature file : {feat_path}")
+        # logger.info(f"Dumping analysis results...")
+        # logger.info(f"Dataset      : {dataset_name}")
+        # logger.info(f"Mode         : {mode}")
+        # logger.info(f"#Samples     : {num_samples}")
+        # logger.info(f"Feature dim  : {feature_dim}")
+        # logger.info(f"Meta file    : {meta_path}")
+        # logger.info(f"Feature file : {feat_path}")
         
-        feature_memmap = np.lib.format.open_memmap(
-            feat_path,
-            mode="w+",
-            dtype=np.float32,
-            shape=(num_samples, feature_dim),
-        )
-        logger.info("Feature memmap created.")
+        # feature_memmap = np.lib.format.open_memmap(
+        #     feat_path,
+        #     mode="w+",
+        #     dtype=np.float32,
+        #     shape=(num_samples, feature_dim),
+        # )
+        # logger.info("Feature memmap created.")
         
-        csv_file = open(meta_path, "w", newline="")
-        writer = csv.writer(csv_file)
-        writer.writerow(["index", "label", "pred"])
+        # csv_file = open(meta_path, "w", newline="")
+        # writer = csv.writer(csv_file)
+        # writer.writerow(["index", "label", "pred"])
         
-        offset = 0
+        # offset = 0
 
-        logger.info("Starting inference and dumping...")
+        # logger.info("Starting inference and dumping...")
         for batch_idx, batch in enumerate(tqdm(data_loader)):
             input, label = self.parse_batch_test(batch)
-            output, feat = self.model_inference(
+            output       = self.model_inference(
                 input,
-                return_features=True
+                return_features=False
             )
+            # output, feat = self.model_inference(
+            #     input,
+            #     return_features=True
+            # )
             
-            if batch_idx == 0:
-                logger.info(f"Output shape  : {tuple(output.shape)}")
-                logger.info(f"Feature shape : {tuple(feat.shape)}")
-                logger.info(f"Feature dtype : {feat.dtype}")
+            # if batch_idx == 0:
+            #     logger.info(f"Output shape  : {tuple(output.shape)}")
+            #     logger.info(f"Feature shape : {tuple(feat.shape)}")
+            #     logger.info(f"Feature dtype : {feat.dtype}")
             
-            B = label.size(0)
+            # B = label.size(0)
 
-            feature_memmap[offset:offset+B] = feat.cpu().numpy()
+            # feature_memmap[offset:offset+B] = feat.cpu().numpy()
 
-            pred = output[:, 1].cpu().numpy()   # adjust according to your output
+            # pred = output[:, 1].cpu().numpy()   # adjust according to your output
 
-            for i in range(B):
-                writer.writerow([
-                    offset + i,
-                    int(label[i]),
-                    float(pred[i]),
-                ])
+            # for i in range(B):
+            #     writer.writerow([
+            #         offset + i,
+            #         int(label[i]),
+            #         float(pred[i]),
+            #     ])
 
-            offset += B
+            # offset += B
             
-            if (batch_idx + 1) % 50 == 0 or (batch_idx + 1) == len(data_loader):
-                logger.info(
-                    f"Processed batch {batch_idx+1}/{len(data_loader)} "
-                    f"({offset}/{num_samples} samples)"
-                )
+            # if (batch_idx + 1) % 50 == 0 or (batch_idx + 1) == len(data_loader):
+            #     logger.info(
+            #         f"Processed batch {batch_idx+1}/{len(data_loader)} "
+            #         f"({offset}/{num_samples} samples)"
+            #     )
             
             self.evaluator.process(output, label)
 
         logger.info("Finished inference.")
 
-        logger.info("Flushing feature memmap to disk...")
-        feature_memmap.flush()
+        # logger.info("Flushing feature memmap to disk...")
+        # feature_memmap.flush()
 
-        logger.info("Closing metadata CSV...")
-        csv_file.close()
+        # logger.info("Closing metadata CSV...")
+        # csv_file.close()
 
-        logger.info("Analysis dump completed successfully.")
+        # logger.info("Analysis dump completed successfully.")
         
         results = self.evaluator.evaluate()
 
