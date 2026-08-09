@@ -30,7 +30,7 @@ TRANSFORM:
   # GAUSSIAN BLUR
   GB_P: 0.5  # propability of applying this operation
   GB_K: 5    # kernel size (should be an odd number)
-  _C.TRANSFORM.GB_SIGMA: (0.1, 2.0)  # Uniform[0, 2]
+  GB_SIGMA: (0.1, 2.0)  # Uniform[0, 2]
   # JPEG COMPRESSION
   JPEG_P: 0.25
   JPEG_QUALITY: (50, 99)
