@@ -1004,7 +1004,7 @@ class RoHLTrainer(AbstractTrainer):
             # Assume that original transforms include "resize", "to_tensor", "normalize" in that order
             original_transform = build_transform(self.cfg, is_train=True)
             logger.info("Successfully build original transform!")
-            high_freq_transform, low_freq_transform, augmix_transform = self.build_customized_transform(original_transform.transforms)
+            high_freq_transform, low_freq_transform, augmix_transform, transform = self.build_customized_transform(original_transform.transforms)
             
             # Notes:
             # AugMix pretrained ResNet50 is available
@@ -1016,11 +1016,13 @@ class RoHLTrainer(AbstractTrainer):
             if self.cfg.RoHL.USE_JSD:
                 self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(high_freq_transform, original_transform))
                 self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(low_freq_transform, original_transform))
-                self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform)) # both high and low frequency corruptions for augmentation
+                self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(augmix_transform, original_transform)) 
+                self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=(transform, original_transform)) # both high and low frequency corruptions for augmentation
             else:
                 self.train_high_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=high_freq_transform)
                 self.train_low_freq_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=low_freq_transform)
-                self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=augmix_transform) # both high and low frequency corruptions for augmentation
+                self.train_augmix_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=augmix_transform) 
+                self.train_loader = build_dataloader(self.cfg, is_train=True, split="train", transform=transform) # both high and low frequency corruptions for augmentation
             logger.info("Successfully build train loaders: high_freq, low_freq and augmix!")
             if not self.cfg.TRAINER.NO_TEST:
                 self.val_loader = build_dataloader(self.cfg, is_train=False, split="val")
