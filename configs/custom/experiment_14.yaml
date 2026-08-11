@@ -7,7 +7,7 @@ MODEL:
   MODEL_NAME: "model-best.pth.tar"
 
 DATASET:
-  NAME: "CNNSpotTestSet"
+  NAME: "AIGCDetectBenchmark"
   DATA_DIR: ""
   NUM_CLASSES: 2
 

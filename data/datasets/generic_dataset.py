@@ -13,6 +13,7 @@ from utils import listdir_nohidden, logger
 kaggle_root_dir = {
     "CNNSpotTest": "/kaggle/input/cnnspot/cnn_spot/test",
     "CLIPpingEval": "/kaggle/input/clipping-eval/deepfake_eval",
+    "AIGCDetectBenchmark": "/kaggle/input/datasets/anhphmminh/aigcdetect/test",
 }
 
 kaggle_dataset_paths = {
@@ -30,6 +31,26 @@ kaggle_dataset_paths = {
     "StyleGAN2": osp.join(kaggle_root_dir["CNNSpotTest"], "stylegan2"),
     "StyleGAN3": osp.join(kaggle_root_dir["CLIPpingEval"], "stylegan3", "images", "val"),
     "WhichFaceIsReal": osp.join(kaggle_root_dir["CNNSpotTest"], "whichfaceisreal"),
+}
+
+kaggle_aigc_dataset_paths = {
+    "ADM": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "ADM"),
+    "DALLE2": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "DALLE2"),
+    "Glide": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "Glide"),
+    "Midjourney": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "Midjourney"),
+    "VQDM": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "VQDM"),
+    "BigGAN": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "biggan"),
+    "CycleGAN": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "cyclegan"),
+    "GauGAN": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "gaugan"),
+    "ProGAN": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "progan"),
+    "SDXL": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "sd_xl"),
+    "SDv1.4": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "stable_diffusion_v_1_4"),
+    "SDv1.5": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "stable_diffusion_v_1_5"),
+    "StarGAN": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "stargan"),
+    "StyleGAN": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "stylegan"),
+    "StyleGAN2": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "stylegan2"),
+    "WhichFaceIsReal": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "whichfaceisreal"),
+    "Wukong": osp.join(kaggle_root_dir["AIGCDetectBenchmark"], "wukong"),
 }
 
 class MyImageDataset(Dataset):
@@ -561,6 +582,39 @@ class CNNSpotTestSet(MyImageDataset):
                         self.img_files.append(impath)
                         self.labels.append(label)
             elif self.dataset_name.lower() not in ["cyclegan", "progan", "stylegan", "stylegan2"]:
+                label_names = listdir_nohidden(data_dir)
+                for label_name in label_names:
+                    label_dir = osp.join(data_dir, label_name)
+                    label = int(label_name.split("_")[0])
+                    imnames = listdir_nohidden(label_dir)
+                    for imname in imnames:
+                        impath = osp.join(label_dir, imname)
+                        self.img_files.append(impath)
+                        self.labels.append(label)
+            else:
+                class_names = listdir_nohidden(data_dir)
+                for class_name in class_names:
+                    class_dir = osp.join(data_dir, class_name)
+                    label_names = listdir_nohidden(class_dir)
+                    for label_name in label_names:
+                        label_dir = osp.join(class_dir, label_name)
+                        label = int(label_name.split("_")[0])
+                        imnames = listdir_nohidden(label_dir)
+                        for imname in imnames:
+                            impath = osp.join(label_dir, imname)
+                            self.img_files.append(impath)
+                            self.labels.append(label)
+    
+        return
+
+class AIGCDetectBenchmark(MyImageDataset):
+    def read_data_dir(self, split="test"):
+        self.img_files = []
+        self.labels = []
+
+        data_dir = kaggle_aigc_dataset_paths[self.dataset_name]
+        if split == "test" or split == "val" or split == "train":
+            if self.dataset_name.lower() not in ["cyclegan", "progan", "stylegan", "stylegan2"]:
                 label_names = listdir_nohidden(data_dir)
                 for label_name in label_names:
                     label_dir = osp.join(data_dir, label_name)
