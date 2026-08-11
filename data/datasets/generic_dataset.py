@@ -635,10 +635,7 @@ class AIGCDetectBenchmark(MyImageDataset):
                         imnames = listdir_nohidden(label_dir)
                         for imname in imnames:
                             # Skip corrupted image
-                            if (
-                                self.dataset_name == "DALLE2"
-                                and imname == "000000097792.jpg"
-                            ):
+                            if self.dataset_name == "DALLE2" and imname == "000000097792.jpg":
                                 print(f"Skipping corrupted image: {osp.join(label_dir, imname)}")
                                 continue
                             
